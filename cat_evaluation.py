@@ -2,8 +2,8 @@
 # coding: utf-8
 
 # after you have run "streamlined_turbulence_code.ipynb", run this to perform the model evaluation
-# you should have these files: glob.glob(f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc") 
-# and glob.glob(f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/percentiles/{turbulence_index}-{P}hPa-monthly-percentiles_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc")
+# you should have these files: glob.glob(f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc") 
+# and glob.glob(f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/percentiles/{turbulence_index}-{P}hPa-monthly-percentiles_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc")
 
 import xarray as xr
 import glob
@@ -17,7 +17,8 @@ from turbulence_AUSCAT.cat_indices import calc_turbulence_indices, windspeed, VW
 from xarray.groupers import SeasonResampler
 import matplotlib.pyplot as plt
 
-path= "/scratch/v46/gt3409"
+# Letty edit path:
+path= "/scratch/v46/ls7238/CAT_turbulence"
 
 mid_lat_slice = slice(-50,-25)
 lon_slice = slice(90,195)

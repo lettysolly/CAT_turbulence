@@ -2835,7 +2835,7 @@ def plot_timeseries(ds_resampled,
     Window_size, therefore, should be the number of years for the rolling average.
     """
     if significance_tested:
-        evaluation_combined = pd.read_csv(f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv")
+        evaluation_combined = pd.read_csv(f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv")
 
         significance_list = list(evaluation_combined[(evaluation_combined["time_selection"]==time_selection) 
                          & (evaluation_combined["combined_significance"].isin(["", "*", "**", "***"]))]["sample2"])
@@ -2915,7 +2915,7 @@ def plot_futures(time_selection="annual",
     fig, axs
     """
     if significance_tested:  
-        combined_significance_table_file= (f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv")
+        combined_significance_table_file= (f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv")
         evaluation_combined = pd.read_csv(combined_significance_table_file)
         # runs that pass at least one test
         run_list = list(evaluation_combined[(evaluation_combined["time_selection"]==time_selection) 
@@ -2925,11 +2925,11 @@ def plot_futures(time_selection="annual",
         run_list = list_historical
         
     # get the list of files we need
-    glob_list = glob(f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/\
+    glob_list = glob(f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/\
 {turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc")
 
     # historical
-    desired_list = [f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/\
+    desired_list = [f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/\
 {turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc" 
                                 for run in run_list]
     filelist = [f for f in desired_list if f in glob_list]
@@ -2949,7 +2949,7 @@ def plot_futures(time_selection="annual",
     
     #future
     future_list =  [experiment + run[10:] for run in run_list]
-    desired_list = [f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/\
+    desired_list = [f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/\
 {turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc" 
                                 for run in future_list]
     filelist = [f for f in desired_list if f in glob_list]
@@ -3090,7 +3090,7 @@ def evaluate_model_map(ds_baseline_mapped, turbulence_index, P, ticks_max=0.08):
     """Plot the baseline mean for each model"""
     experiment = "historical"
     time_selection = "annual"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_frequency_of_exceeding_p99_{experiment}_{time_selection}_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_frequency_of_exceeding_p99_{experiment}_{time_selection}_1990-2009.png"
         
     fig, axs = plot_acs_hazard_multi(nrows=4, 
                           ncols=2, 
@@ -3122,7 +3122,7 @@ def evaluate_model_map_anom(ds_baseline_mapped, turbulence_index, P, ticks_max=0
     """Plot the baseline mean anomaly from BARRA-R for each model"""
     experiment = "historical"
     time_selection = "annual"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Difference_in_frequency_of_exceeding_p99_from_BARRA-R_{experiment}_{time_selection}_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Difference_in_frequency_of_exceeding_p99_from_BARRA-R_{experiment}_{time_selection}_1990-2009.png"
     
     pval_list = []
     ds_eval = ds_baseline_mapped.sel({"run":list_evaluation[0], })
@@ -3166,7 +3166,7 @@ def evaluate_model_map_anom(ds_baseline_mapped, turbulence_index, P, ticks_max=0
     return
 
 def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None):
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_annual_rolling{window_size}y.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_annual_rolling{window_size}y.png"
     time_selection = "annual"
     ds_resampled = select_resample_time(ds_ts, time_selection)
     
@@ -3184,7 +3184,7 @@ def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None):
     
 def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax=None):
     # cool season v warm season
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_6Mseason_rolling{window_size}y.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_6Mseason_rolling{window_size}y.png"
     
     fig, axs = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(8,4))
     for i, time_selection in enumerate(["MJJASO", "NDJFMA"]):
@@ -3211,7 +3211,7 @@ def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax
 
 
 def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None):
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_season_rolling{window_size}y.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_season_rolling{window_size}y.png"
 
     # for season:
     ncols=2
@@ -3247,7 +3247,7 @@ def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None):
     
 def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None):
     """for month"""
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/\
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/\
 Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_month_rolling{window_size}y.png"
     
     ncols = 3
@@ -3283,7 +3283,7 @@ def plot_baseline_ann(ds_eval, turbulence_index, P, ticks_max=None):
     """annual barra climatology plot"""
     experiment = "evaluation"
     time_selection = "annual"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_{time_selection}_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_{time_selection}_1990-2009.png"
     ds_list = [select_resample_time(ds_eval, time_selection).mean(["time",])[turbulence_index]]
     fig, axs = plot_acs_hazard_multi(nrows=1, 
                                      ncols=1, 
@@ -3312,7 +3312,7 @@ def plot_baseline_ann(ds_eval, turbulence_index, P, ticks_max=None):
 def plot_baseline_coolwarmseason(ds_eval, turbulence_index, P, ticks_max=None):
     """Six-month cool/warm season barra climatology plot"""
     experiment="historical"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_6Mseason_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_6Mseason_1990-2009.png"
     # cool season v warm season
     cool_season = [5, 6, 7, 8, 9, 10,]
     warm_season = [11, 12, 1, 2, 3, 4]
@@ -3350,7 +3350,7 @@ def plot_baseline_coolwarmseason(ds_eval, turbulence_index, P, ticks_max=None):
 def plot_baseline_season(ds_eval, turbulence_index, P, ticks_max=None):
     """Calendar season barra climatology plot"""
     experiment="historical"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_season_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_season_1990-2009.png"
 
     season_list = ["DJF", "MAM", "JJA", "SON"]
     ds_list = [select_resample_time(ds_eval, time_selection)[turbulence_index].mean("time")
@@ -3384,7 +3384,7 @@ def plot_baseline_season(ds_eval, turbulence_index, P, ticks_max=None):
 def plot_baseline_months(ds_eval, turbulence_index, P, ticks_max=None):
     """Month barra climatology plot"""
     experiment="historical"
-    outfile = f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_month_1990-2009.png"
+    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Evaluation_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_{experiment}_month_1990-2009.png"
 
     ds_list = [select_resample_time(ds_eval, calendar.month_name[time_selection])[turbulence_index].mean("time")
                                               for time_selection in np.arange(1,12+1)]
