@@ -10,6 +10,8 @@ from turbulence_AUSCAT.auscat_plots import *
 import calendar
 from scipy import stats
 from xarray.groupers import SeasonResampler, SeasonGrouper
+from matplotlib.lines import Line2D
+from IPython.display import display
 
 import datetime
 import os
@@ -24,6 +26,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.ticker as mticker
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import math
 
 from glob import glob
 
@@ -430,6 +433,7 @@ def plot_data(regions=None,
               select_area = None,
               vcentre=None,
               latlongrid=True,
+              panel = None,
              ):
     """This function takes one axis and plots the hazard data to one map of Australia. 
     This function takes gridded "data" and/or a "station_df" dataframe and "regions" shapefiles 
@@ -738,6 +742,8 @@ def plot_data(regions=None,
             print("could not download borders")
         ax.coastlines(resolution = "10m", zorder=5, linewidth=area_linewidth*0.8,)
 
+
+    '''
     if latlongrid:
         
         ax.tick_params(
@@ -762,23 +768,70 @@ def plot_data(regions=None,
         
         gl.xlabel_style = {'fontsize': 8, 'rotation': 0}
         gl.ylabel_style = {'fontsize': 8}
+        '''
+    
 
+    if latlongrid:
+
+        xticks = [100, 120, 140, 160, 180]
+        yticks = [-50, -40, -30, -20, -10, 0, 10]
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            linewidth=0.4,
+            color="black",
+            alpha=0.25,
+            linestyle="--",
+            draw_labels=True,
+        )
+        gl.rotate_labels = False
+
+        gl.xlocator = mticker.FixedLocator(xticks)
+        gl.ylocator = mticker.FixedLocator(yticks)
+
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+
+        gl.left_labels = False
+        gl.right_labels = True
+
+        if panel == 3:
+            gl.top_labels = False
+            gl.bottom_labels = True
+        else:
+            gl.top_labels = False
+            gl.bottom_labels = False
+
+        gl.xlabel_style = {
+            "fontsize": 8,
+            "rotation": 0,
+            "ha": "center",
+        }
+        gl.ylabel_style = {
+            "fontsize": 8,
+            "rotation": 0,
+            "va": "center",
+            "ha": "left",
+        }
+
+        ax.tick_params(
+            bottom=False, top=False, left=False, right=False,
+            labelbottom=False, labeltop=False, labelleft=False, labelright=False
+        )
+    
 
     # subtitle
     if subtitle_xy is None:
-        subtitle_xy = (0.02, 0.02)
+        subtitle_xy = (0.02, 0.98)
         
-    ax.text(
-        x=subtitle_xy[0],
-        y=subtitle_xy[1],
-        s=subtitle,
-        fontsize=fontsize_subtitle,
-        horizontalalignment="left",
-        verticalalignment="bottom",
-        transform=ax.transAxes,
-        zorder=10,
-        wrap=True,
-    )
+    # subtitle above each panel
+    if subtitle is not None and subtitle != "":
+        ax.set_title(
+            subtitle,
+            loc="left",
+            fontsize=fontsize_subtitle,
+            fontweight="normal",
+            pad=2)
 
     return ax, norm, cont, middle_ticks
 
@@ -870,7 +923,7 @@ def plot_cbar(cont=None,
             norm=norm,
             location=location,
             fraction=0.046, 
-            pad=0.04
+            pad=0.1
         )
         # only label ticks at specified tick intervals
         [l.set_visible(False) for (i,l) in enumerate(cbar.ax.xaxis.get_ticklabels()) if i % tick_interval != 0]
@@ -888,7 +941,7 @@ def plot_cbar(cont=None,
             drawedges=True,
             location=location,
             fraction=0.046, 
-            pad=0.04
+            pad=0.1
         )
         if location=="bottom":
             if len(ticks) == len(tick_labels):
@@ -908,14 +961,19 @@ def plot_cbar(cont=None,
     
     # Label colorbar
     if cbar is not None:
-        cbar.ax.set_title(cbar_label, 
-                          zorder=10,
-                          loc="center",
-                          fontsize=fontsize_cbar,
-                          fontstretch="normal",
-                          verticalalignment="bottom",
-                         wrap=True)
-
+        if location == "bottom":
+            cbar.set_label(cbar_label, fontsize=fontsize_cbar, labelpad=6)
+        else:
+            cbar.ax.set_title(
+                cbar_label,
+                zorder=10,
+                loc="center",
+                fontsize=fontsize_cbar,
+                fontstretch="normal",
+                verticalalignment="bottom",
+                pad=8,
+                wrap=True,
+            )
     cbar.ax.tick_params(rotation=rotation) 
     return cbar
 
@@ -1095,7 +1153,7 @@ def plot_titles(title="title",
         y=text_xy["title"][1],
         s=f"{title}",
         fontsize=fontsize_title,
-        weight="bold",
+        weight="normal",
         horizontalalignment=title_ha,
         verticalalignment="bottom",
         transform=ax.transAxes,
@@ -1565,7 +1623,7 @@ def plot_acs_hazard_multi(
                "watermark": (0.45, 0.41),}
     
     if regions is None:
-        regions = regions_dict['ncra_regions']
+        regions = regions_dict['aus_states_territories']
 
     # Set default projection for Australia maps and selection maps
     if projection is None:
@@ -1688,7 +1746,7 @@ def plot_acs_hazard_multi(
         # ---------------------------------------------
     
                     
-        ax.axis('off')
+        #ax.axis('off')
 
         if not share_cbar:  
             if _cont is None:
@@ -1765,7 +1823,7 @@ def plot_acs_hazard_multi(
 # # Define a function for plotting maps
 # This is the function you call to plot all the graphs
 def plot_acs_hazard(
-    name='ncra_regions',
+    name='aus_states_territories',
     regions=None,
     data=None,
     station_df=None,
@@ -2561,22 +2619,24 @@ def plot_acs_hazard_1plus3(
         if figsize is None:
             figsize=(10, 3)
         
-    elif orientation=="vertical":
-        cax_bounds = [-0.4,-0.3,1.6,0.1]
+    elif orientation == "vertical":
+        cax_bounds = [0.08, -0.22, 0.84, 0.07]
         if tick_rotation is None:
-            tick_rotation = -90
+            tick_rotation = 0
         nrows = 4
         ncols = 1
         cbar_location = "bottom"
-        plots_rect = (0,0.05,1,0.85) #left bottom width height
-        # text annotation xy locations
-        text_xy = {"title": (0.5, 0.94),
-               "date_range": (0.5, 0.93),
-               "watermark": (0.45, 0.41),}
+        # use more of the figure width
+        plots_rect = (0.06, 0.09, 0.88, 0.84)
+        text_xy = {
+            "title": (0.5, 0.965),
+            "date_range": (0.5, 0.945),
+            "watermark": (0.45, 0.41),
+        }
         if subtitle_xy is None:
             subtitle_xy = (-0.5, 0.2)
         if figsize is None:
-            figsize=(3, 8)
+            figsize = (6, 10)
         
     elif orientation=="square":
         cax_bounds = [1.05,0,0.1,1]
@@ -2600,7 +2660,7 @@ def plot_acs_hazard_1plus3(
         gwl12_tick_rotation = tick_rotation
     
     if regions is None:
-        regions = regions_dict['ncra_regions']
+        regions = regions_dict['aus_states_territories']
 
     # Set default projection for Australia maps and selection maps
     if projection is None:
@@ -2617,10 +2677,10 @@ def plot_acs_hazard_1plus3(
 
     fig, axs = plt.subplots(nrows=nrows,
                             ncols=ncols,  
-                            sharey=True,
+                            sharey=False,
                             sharex=True,
                             figsize=figsize, 
-                            layout="constrained",
+                            #layout="constrained",
                             subplot_kw={'projection': projection, "frame_on":False},)
 
     gwl12_cmap.set_bad(cmap_bad)
@@ -2658,13 +2718,14 @@ def plot_acs_hazard_1plus3(
                                              stippling=stippling_gwl12,
                                              shading=shading_gwl12,
                                              vcentre=gwl12_vcentre,
+                                             panel = 0
                                             )
     cbar = plot_cbar(cont=cont,
                   norm=norm,
                   ax=axs.flatten()[0],
                   cbar_extend=gwl12_cbar_extend, 
                   cbar_label=gwl12_cbar_label,
-                     location=cbar_location,
+                  location=cbar_location,
                   ticks=gwl12_ticks, 
                   tick_interval=gwl12_tick_interval,
                   tick_labels=gwl12_tick_labels,
@@ -2703,7 +2764,8 @@ def plot_acs_hazard_1plus3(
                                                  coastlines=coastlines,
                                                  stippling=stippling,
                                                  shading=shading,
-                                                vcentre=vcentre,)
+                                                vcentre=vcentre,
+                                                panel = i+1)
         
         # if select a specific area -----------
         ax = plot_select_area(select_area=select_area, 
@@ -2715,7 +2777,7 @@ def plot_acs_hazard_1plus3(
                               area_linewidth=area_linewidth,
                               )
         # ---------------------------------------------                    
-        ax.axis('off')
+        #ax.axis('off')
     
     # colorbar -----------------------------------------------------------
     cbar = plot_cbar(cont=cont,
@@ -2736,7 +2798,8 @@ def plot_acs_hazard_1plus3(
     
     
     # plot border and annotations -----------------
-    fig.get_layout_engine().set(rect=plots_rect)
+    #fig.get_layout_engine().set(rect=plots_rect)
+    fig.subplots_adjust(left=0.12, right=0.88, top=0.91, bottom=0.11, hspace=0.42)
     
     ax111 = fig.add_axes([0.01,0.01,0.98,0.98], xticks=[], yticks=[]) #(left, bottom, width, height)
         
@@ -2744,8 +2807,8 @@ def plot_acs_hazard_1plus3(
                         date_range = date_range, 
                         baseline = baseline, 
                         dataset_name= dataset_name,
-                        issued_date=issued_date,
-                        watermark=watermark, 
+                        issued_date="",
+                        watermark="", 
                         watermark_color=watermark_color,
                         ax=ax111,
                         text_xy = text_xy,
@@ -2866,13 +2929,15 @@ def plot_timeseries(ds_resampled,
         ax = ax
     sns.lineplot(df, x="time", y=y, hue="experiment", 
                  errorbar=('pi', pi), palette=ssp_colors, ax=ax, legend=legend)
+    if legend:
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), frameon=False)
     ax.set_title(title)
     plt.ylim((0, ymax))
     ax.set_ylabel(f"Frequency p99 [per 6h]")
     plt.xlim((df["time"][0], df["time"][len(df["time"])-1]))
     ax.grid()
     if outfile is not None:
-        plt.savefig(outfile)
+        plt.savefig(outfile, bbox_inches="tight")
         print(f"Saved {outfile}")
     return ax
 
@@ -3000,7 +3065,7 @@ def plot_futures(time_selection="annual",
         # IE all models agree on the sign
         agree_mask = ((mf_delta > 0).sum("run") >= agreement_threshold) + ((mf_delta < 0).sum("run") >= agreement_threshold)
         # coarsen for stippling density
-        agree_mask = (agree_mask.coarsen(lat=20, lon=20, boundary="pad").mean() > 0.4)
+        agree_mask = (agree_mask.coarsen(lat=16, lon=16, boundary="pad").mean() > 0.4)
         agreement_list.append(agree_mask)
 
     fig, axs = plot_acs_hazard_multi(nrows=len(time_slices), 
@@ -3031,30 +3096,36 @@ def plot_futures(time_selection="annual",
     if save_fig:
         if outfile is None:
             outfile = f"Change in {time_selection} frequency of exceeding p99 {turbulence_index} {P}hPa {experiment}.png".replace(" ", "_")
-        plt.savefig(outfile)
-        print(f"Saved {outfile}")
+            fig.savefig(outfile, bbox_inches="tight")
+            print(f"Saved {outfile}")
+    display(fig)
+
     if zonal_plots:
-        # zonal mean values
-        fig1, axs1 = plt.subplots(len(time_slices),1, figsize=(3,7), sharex=True)
-        
+        fig1, axs1 = plt.subplots(len(time_slices), 1, figsize=(3,7), sharex=True)
+
         hue_order = common_runs
         palette = {run: sns.color_palette("colorblind", 8)[i] for i, run in enumerate(common_runs)}
-        
+
         for i, (start_year, end_year) in enumerate(time_slices):
             df_zonal = mean_futures[i].mean(["lon"]).to_dataframe()
-            sns.lineplot(data = df_zonal, x = turbulence_index, y ="lat",
-                         hue = "run", hue_order= hue_order, palette=palette,
-                         orient="y", ax=axs1[i],
-                        )
+            sns.lineplot(
+                data=df_zonal, x=turbulence_index, y="lat",
+                hue="run", hue_order=hue_order, palette=palette,
+                orient="y", ax=axs1[i],
+            )
             axs1[i].legend_.remove()
             axs1[i].grid(True)
-        
-        plt.xlim((0,None))
+
+        plt.xlim((0, None))
         plt.tight_layout()
-        axs1[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.25), )
+        axs1[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.25))
+
         if save_fig:
-            path, filetype = outfile.split(".")
-            plt.savefig(f"{path}_zonal-means.{filetype}")
+            path, filetype = outfile.rsplit(".", 1)
+            zonal_outfile = f"{path}_zonal-means.{filetype}"
+            fig1.savefig(zonal_outfile, bbox_inches="tight")
+            print(f"Saved {zonal_outfile}")
+        display(fig1)
 
     # if True:
     #     # zonal mean values
@@ -3165,8 +3236,10 @@ def evaluate_model_map_anom(ds_baseline_mapped, turbulence_index, P, ticks_max=0
     print(f"Made {outfile}")
     return
 
-def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None):
-    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_annual_rolling{window_size}y.png"
+def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None, outfile = None):
+    if outfile is None:
+        outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_annual_rolling{window_size}y.png"
+    
     time_selection = "annual"
     ds_resampled = select_resample_time(ds_ts, time_selection)
     
@@ -3182,11 +3255,12 @@ def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None):
                    )
     return
     
-def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax=None):
+def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax=None, outfile = None):
     # cool season v warm season
-    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_6Mseason_rolling{window_size}y.png"
+    if outfile is None:
+        outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_6Mseason_rolling{window_size}y.png"
     
-    fig, axs = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(8,4))
+    fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=False, figsize=(7,6))
     for i, time_selection in enumerate(["MJJASO", "NDJFMA"]):
         ds_resampled = select_resample_time(ds_ts, time_selection)
     
@@ -3194,31 +3268,68 @@ def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax
             legend=True
         else:
             legend=False
+        
+        ymax_i = None
+        if ymax is not None:
+            ymax_i = ymax[i]
+
+
         plot_timeseries(ds_resampled, 
                         turbulence_index=turbulence_index,
                         title=time_selection,
-                        ymax=ymax, 
+                        ymax=ymax_i, 
                         window_size=window_size,
                         time_selection=time_selection, 
                         significance_tested=False,
-                       ax=axs[i],
-                       legend = legend)
+                        ax=axs[i],
+                        legend = False)
+    
+    # Manually set figure and axis lables
     plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
+    fig.subplots_adjust(hspace=0.25)
+    for ax in axs.flat:
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+        ax.grid(alpha=0.3)
+        ax.tick_params(axis="both", labelsize=10)
+        ax.tick_params(axis="y", pad=2)
+    axs[0].set_title("Cool season (MJJASO)")
+    axs[1].set_title("Warm season (NDJFMA)")
+    fig.supylabel("Frequency p99 [per 6h]")
+    fig.supxlabel("Year")
+
+    # Legend below figure:
+    handles, labels = axs[0].get_legend_handles_labels()
+    legend_handles = [
+        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=5,
+        frameon=False,
+        bbox_to_anchor=(0.5, -0.045))
+
     # plt.tight_layout()
-    plt.savefig(outfile)
+    plt.savefig(outfile, bbox_inches="tight")
     print(f"Saved {outfile}")
     return
 
 
-def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None):
-    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_season_rolling{window_size}y.png"
+def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None, outfile = None):
+    if outfile is None:
+        outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_season_rolling{window_size}y.png"
 
     # for season:
     ncols=2
     nrows=2
     
-    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, figsize=(8,8))
-    
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=False, figsize=(9,9))
+    fig.subplots_adjust(bottom=0.07)
+
     for i, time_selection in enumerate(["DJF", "MAM", "JJA", "SON"]):
         print(time_selection)    
         # get the relevant runs and resample to annual
@@ -3227,33 +3338,66 @@ def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None):
             legend=True
         else:
             legend=False
+
+        # Choose y limit for each subplot:
+        ymax_i = None
+        if ymax is not None:
+            ymax_i = ymax[i]
             
         ax = plot_timeseries(ds_resampled, 
                              turbulence_index=turbulence_index,
                                 title=time_selection,
-                                ymax=ymax, 
+                                ymax=ymax_i, 
                                 window_size=window_size,
                                 time_selection=time_selection, 
                                 significance_tested=False,
                                ax=axs[(i//ncols, i%ncols)],
-                             legend=legend
+                               legend=False
                                )
         
+    # Manually set figure and axis titles:
     plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
-    plt.savefig(outfile)
+    for ax in axs.flat:
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+        ax.grid(alpha=0.3)
+        ax.tick_params(axis="both", labelsize=10)
+        ax.tick_params(axis="y", pad=2)
+    fig.supylabel("Frequency p99 [per 6h]")
+    fig.supxlabel("Year")
+    
+    # Legend below figure:
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    legend_handles = [
+        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=5,
+        frameon=False,
+        bbox_to_anchor=(0.5, -0.045))
+    
+    plt.savefig(outfile, bbox_inches="tight")
     print(f"Saved {outfile}")
     return
 
     
-def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None):
+def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None, outfile = None):
     """for month"""
-    outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/\
-Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_month_rolling{window_size}y.png"
+    if outfile is None:
+        outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/\
+            Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_month_rolling{window_size}y.png"
     
     ncols = 3
     nrows = 4
-    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=True, figsize=(10,12))
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=False, figsize=(12,12.5))
     
+    fig.subplots_adjust(left=0.10, right=0.98, top=0.93, bottom=0.05,wspace=0.19, hspace=0.20)
+
     for i, month_number in enumerate(np.arange(1,12+1)):
         time_selection = calendar.month_name[month_number]
         # get the relevant runs and resample to annual
@@ -3263,18 +3407,51 @@ Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_month_
             legend=True
         else:
             legend=False
+        
+        # Choose y limit for each subplot:
+        ymax_i = None
+        if ymax is not None:
+            ymax_i = ymax[i]
     
         plot_timeseries(ds_resampled, 
                         turbulence_index=turbulence_index,
                         title=time_selection,
-                        ymax=ymax, 
+                        ymax=ymax_i, 
                         window_size=window_size,
                         time_selection=time_selection, 
                         significance_tested=False,
                        ax=axs[(i//ncols, i%ncols)],
-                       legend=legend)
+                       legend=False)
+    
     plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
-    plt.savefig(outfile)
+    # remove per-axis labels
+    for ax in axs.flat:
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.grid(alpha=0.3)
+        ax.tick_params(axis="both", labelsize=9)
+        ax.tick_params(axis="y", pad=2)
+    fig.supylabel("Frequency p99 [per 6h]")
+    fig.supxlabel("Year")
+
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    legend_handles = [
+        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=5,
+        frameon=False,
+        bbox_to_anchor=(0.5, -0.045))
+    
+    plt.savefig(outfile, bbox_inches="tight")
     print(f"Saved {outfile}")
     return
 
@@ -3411,6 +3588,3378 @@ def plot_baseline_months(ds_eval, turbulence_index, P, ticks_max=None):
                      );
     print(f"Saved {outfile}")
     return fig, axs 
+
+
+def plot_futures_1plus3(time_selection="annual",
+                         turbulence_index=None,
+                         P=None,
+                         time_slices = None, 
+                         experiment="ssp370", 
+                         all_agree_except=0,
+                         figsize=(6,9),
+                         save_fig=True,
+                         outfile=None,
+                         significance_tested=False,
+                         ticks_max=0.020,
+                        baseline_time_slice = baseline_time_slice):
+    
+    """
+    Plot future change maps and zonal means for the p99 frequency metric.
+    Change is calculated from the historical baseline period per model. 
+    BARRA-R evaluation is not used in these calculations
+
+    Parameters
+    ----------
+    time_selection : str
+        e.g., 	time_selection: [annual, MJJASO, NDJFMA, DJF, MAM, JJA, SON, January, February, March,
+        April, May, June, July, August, September, October, November, December]
+    turbulence_index: str
+        turbulence index, one of "windspeed"m "VWS", "TI1"
+    P :
+        pressure level for index. eg 200 or 250
+    time_slices : list[tuple[str,str]]
+        List of (start_year, end_year) pairs.
+    experiment : str
+        e.g., 'ssp370'
+    all_agree_except : int
+        Number of runs allowed to disagree with the majority sign for hatching. Indicates robust signal across models
+    save_fig : bool
+        If True, saves the map figure.
+    significance_tested : bool
+        If True, restrict runs to those which pass at least one significance test. Determined by eg "**" 
+    ticks_max: float
+        limit for colorscale for anomalies
+
+    Returns
+    -------
+    fig, axs
+    """
+    if significance_tested:  
+        combined_significance_table_file= (f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv")
+        evaluation_combined = pd.read_csv(combined_significance_table_file)
+        # runs that pass at least one test
+        run_list = list(evaluation_combined[(evaluation_combined["time_selection"]==time_selection) 
+                                 & (evaluation_combined["combined_significance"].isin(["", "*", "**", "***",]))]["sample2"])
+    else:
+        # use all available
+        run_list = list_historical
+        
+    # get the list of files we need
+    glob_list = glob(f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc")
+
+    # historical
+    desired_list = [f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc" for run in run_list]
+    filelist = [f for f in desired_list if f in glob_list]
+    
+    def _preprocess(ds):
+        ds = ds.sel({"lon":lon_slice,})
+        ds = select_resample_time(ds, time_selection)
+        return ds
+ 
+    ds_hist = xr.open_mfdataset(filelist,
+                          concat_dim="run",
+                          combine="nested",
+                          preprocess= _preprocess,
+                          chunks={"lat":160,"lon":-1},
+                          )
+    ds_hist["run"] = [run[run.index("_")+1:] for run in ds_hist["run"].values] 
+    
+    #future
+    future_list =  [experiment + run[10:] for run in run_list]
+    desired_list = [f"/scratch/v46/gt3409/{turbulence_index}/{P}hPa/freq-above-p99/\
+{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc" 
+                                for run in future_list]
+    filelist = [f for f in desired_list if f in glob_list]
+
+    ds_future = xr.open_mfdataset(filelist,
+                          concat_dim="run",
+                          combine="nested",
+                          preprocess= _preprocess,
+                                  chunks={"lat":160,"lon":-1},
+                          )
+    ds_future["run"] = [run[run.index("_")+1:] for run in ds_future["run"].values] 
+
+    # combine
+    common_runs = [f for f in list(set(ds_hist["run"].values)) if f in set(ds_future["run"].values)]
+    if significance_tested:
+        print(f" These are the common runs used for {experiment}: {common_runs}")
+
+    # create a continuous time series by combining historical and future experiments
+    ds = xr.concat((ds_hist.sel({"run":common_runs,}),
+                    ds_future.sel({"run":common_runs,})), 
+                   coords="minimal", dim="time", join="outer",
+                   compat="override",
+                  ).chunk({"run":1, "time":-1,})
+
+    # baseline relative to the same model's historical period 
+    baseline = ds[turbulence_index].sel({"time":baseline_time_slice}).mean("time")
+    
+    # stippling for agreement
+    agreement_threshold = len(common_runs) - all_agree_except
+
+    # compute per-slice means and agreement masks
+    mean_futures = [ds[turbulence_index].sel(time=slice(start, end)).mean("time") 
+                    for (start, end) in time_slices[1:]]
+
+    # sign agreement: either majority positive or majority negative relative to baseline
+    agreement_list = []    
+    # median across runs of the change
+    ds_list = []
+    for mf in mean_futures:
+        # calculate the change from baseline period per model (relative to own model's historical baseline)
+        mf_delta = (mf - baseline)
+        # median value to map
+        ds_list.append(mf_delta.mean("run"))
+
+        # for stippling: check if all models agree on sign of change (or all minus "all_agree_except")
+        # mapped bool for if all models (or nearly all set by "all_agree_except") show positive changes
+        # OR
+        # mapped bool for if all models (or nearly all set by "all_agree_except") show negative changes
+        # IE all models agree on the sign
+        agree_mask = ((mf_delta > 0).sum("run") >= agreement_threshold) + ((mf_delta < 0).sum("run") >= agreement_threshold)
+        # coarsen for stippling density
+        agree_mask = (agree_mask.coarsen(lat=16, lon=16, boundary="pad").mean() > 0.4)
+        agreement_list.append(agree_mask)
+
+    ds_1, ds_2, ds_3 = ds_list
+    ds_baseline = baseline.mean("run")
+    stippling_1, stippling_2, stippling_3 = agreement_list
+
+    letters = ["(a)", "(b)", "(c)", "(d)"]
+    subplot_titles = [f"{letters[i]} {start}-{end}" for i, (start, end) in enumerate(time_slices)]
+
+    plot_acs_hazard_1plus3(
+                ds_gwl12=ds_baseline,
+                gwl12_cmap=cmap_dict["ipcc_wind_seq"],
+                gwl12_cbar_extend="both",
+                gwl12_cbar_label="frequency [per 6h]",
+                gwl12_ticks=np.arange(0, 0.071, 0.005),
+                gwl12_tick_interval=4,
+                gwl12_tick_rotation =0,
+                ds_gwl15=ds_1,
+                ds_gwl20=ds_2,
+                ds_gwl30=ds_3,                      
+                stippling_gwl15=stippling_1,
+                stippling_gwl20=stippling_2,
+                stippling_gwl30=stippling_3,
+                mask_australia=False,
+                mask_not_australia=False,
+                ticks=np.arange(-1*ticks_max, ticks_max*1.0001, 0.002),
+                tick_rotation =0,
+                vcentre=0,
+                tick_interval=4,
+                cbar_label=f"change in frequency [per 6h]",
+                figsize=figsize,
+                title=f"{experiment.upper()}: Change in {time_selection} frequency of exceeding p99\n {turbulence_index} - {P}hPa",
+                date_range="",
+                subplot_titles=subplot_titles,
+                subtitle_xy = None,
+                area_linewidth=0.3,
+                xlim=(90, 195),
+                ylim=(-53.58 , 13.63),
+                coastlines=True,
+                projection=ccrs.PlateCarree(130),
+                cmap=cmap_dict["anom"],
+                watermark="",
+                show_copyright=False,
+                baseline= "1990 to 2009",
+                cbar_extend="both",
+                dataset_name="BARPA-R",
+                issued_date=None,
+                outfile=None,
+                orientation="vertical",
+                )
+    if save_fig:
+        if outfile is None:
+            outfile = f"Change in {time_selection} frequency of exceeding p99 {turbulence_index} {P}hPa {experiment}.png".replace(" ", "_")
+        plt.savefig(outfile)
+        print(f"Saved {outfile}")
+    return
+
+
+
+
+
+from tqdm.notebook import tqdm
+import gc
+
+
+# =====================================================================
+# ---------------------------------------------------------------------
+# !!!!!!!!!!!! LETTY EDITS AND FUNCTIONS BELOW THIS POINT !!!!!!!!!!!!!
+# ---------------------------------------------------------------------
+# =====================================================================
+
+def prep_futures_1plus3(time_selection="annual",
+                        turbulence_index=None,
+                        P=None,
+                        time_slices=None,
+                        experiment="ssp370",
+                        all_agree_except=1,
+                        significance_tested=False,
+                        baseline_time_slice=baseline_time_slice):
+
+    if significance_tested:
+        combined_significance_table_file = (
+            f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/"
+            f"evaluation_combined_tests_table_{turbulence_index}-{P}hPa.csv"
+        )
+        evaluation_combined = pd.read_csv(combined_significance_table_file)
+        run_list = list(
+            evaluation_combined[
+                (evaluation_combined["time_selection"] == time_selection)
+                & (evaluation_combined["combined_significance"].isin(["", "*", "**", "***"]))
+            ]["sample2"]
+        )
+    else:
+        run_list = list_historical
+
+    glob_list = set(glob(
+        f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/"
+        f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc"
+    ))
+
+    def _preprocess(ds):
+        ds = ds.sel({"lon": lon_slice})
+        ds = select_resample_time(ds, time_selection)
+        return ds
+
+    def get_file(run):
+        return (
+            f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/"
+            f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc"
+        )
+
+    # find common runs that have both hist and future files
+    common_runs = []
+    for run in run_list:
+        hist_run   = run
+        future_run = experiment + run[10:]
+        if get_file(hist_run) in glob_list and get_file(future_run) in glob_list:
+            common_runs.append(run)
+
+    print(f"  {len(common_runs)} common runs found")
+
+    # accumulators
+    baseline_accum = None
+    delta_accum    = None
+    agree_pos      = None
+    agree_neg      = None
+    coords         = None
+    n_runs = 0
+
+    for run in tqdm(common_runs, desc=f"{turbulence_index} {P}hPa {experiment} {time_selection}"):
+        hist_file   = get_file(run)
+        future_run  = experiment + run[10:]
+        future_file = get_file(future_run)
+
+        with xr.open_dataset(hist_file) as ds_h, xr.open_dataset(future_file) as ds_f:
+            ds_h = _preprocess(ds_h)
+            ds_f = _preprocess(ds_f)
+            ds   = xr.concat([ds_h, ds_f], dim="time")
+
+            baseline = ds[turbulence_index].sel(time=baseline_time_slice).mean("time").load()
+
+            run_deltas = []
+            for (start, end) in time_slices[1:]:
+                delta = (ds[turbulence_index].sel(time=slice(start, end)).mean("time") - baseline).load()
+                run_deltas.append(delta)
+
+            del ds, ds_h, ds_f
+            gc.collect()
+
+        # extract coords once for reconstructing DataArrays at the end
+        if coords is None:
+            coords = {"lat": baseline.lat.values, "lon": baseline.lon.values}
+
+        # accumulate as plain numpy — no xarray/dask graph buildup
+        if n_runs == 0:
+            baseline_accum = baseline.values.copy()
+            delta_accum    = [d.values.copy()            for d in run_deltas]
+            agree_pos      = [(d.values > 0).astype(int) for d in run_deltas]
+            agree_neg      = [(d.values < 0).astype(int) for d in run_deltas]
+        else:
+            baseline_accum += baseline.values
+            for i, d in enumerate(run_deltas):
+                delta_accum[i] += d.values
+                agree_pos[i]   += (d.values > 0).astype(int)
+                agree_neg[i]   += (d.values < 0).astype(int)
+
+        del baseline, run_deltas
+        gc.collect()
+        n_runs += 1
+
+    if n_runs == 0:
+        raise RuntimeError("No valid runs found — check file paths and run lists.")
+
+    agreement_threshold = n_runs - all_agree_except
+
+    # wrap numpy arrays back into xarray for coarsen
+    ds_baseline = xr.DataArray(baseline_accum / n_runs, coords=coords, dims=["lat", "lon"])
+    ds_list     = [xr.DataArray(acc / n_runs, coords=coords, dims=["lat", "lon"]) for acc in delta_accum]
+
+    agreement_list = []
+    for pos, neg in zip(agree_pos, agree_neg):
+        agree_mask = xr.DataArray(
+            ((pos >= agreement_threshold) | (neg >= agreement_threshold)),
+            coords=coords,
+            dims=["lat", "lon"]
+        )
+        agree_mask = (agree_mask.coarsen(lat=16, lon=16, boundary="pad").mean() > 0.4)
+        agreement_list.append(agree_mask.load())
+
+    return {
+        "ds_baseline":      ds_baseline,
+        "ds_list":          ds_list,
+        "agreement_list":   agreement_list,
+        "time_slices":      time_slices,
+        "time_selection":   time_selection,
+        "turbulence_index": turbulence_index,
+        "P":                P,
+        "experiment":       experiment,
+        "n_runs":           n_runs,
+    }
+
+
+
+
+def draw_futures_1plus3(prepped, figsize=(6, 9), ticks_max=0.02, outfile=None, save_fig=False):
+    '''Sister function to prep_futures_1plus3 --> takes information computed in this function as argument "prepped" (exepcts dict)
+    and just plots it, no computation done in this function, simply putting pre-computed info on maps.'''
+    
+    ds_baseline = prepped["ds_baseline"]
+    ds_1, ds_2, ds_3 = prepped["ds_list"]
+    stippling_1, stippling_2, stippling_3 = prepped["agreement_list"]
+    time_slices = prepped["time_slices"]
+    time_selection = prepped["time_selection"]
+    turbulence_index = prepped["turbulence_index"]
+    P = prepped["P"]
+    experiment = prepped["experiment"]
+
+    letters = ["(a)", "(b)", "(c)", "(d)"]
+    subplot_titles = [f"{letters[i]} {start}-{end}" for i, (start, end) in enumerate(time_slices)]
+
+    fig, axs = plot_acs_hazard_1plus3(
+        regions=regions_dict["aus_states_territories"],
+        ds_gwl12=ds_baseline,
+        gwl12_cmap=cmap_dict["ipcc_wind_seq"],
+        gwl12_cbar_extend="both",
+        gwl12_cbar_label="Frequency [per 6h]",
+        gwl12_ticks=np.arange(0, 0.071, 0.005),
+        gwl12_tick_interval=4,
+        gwl12_tick_rotation=0,
+        ds_gwl15=ds_1,
+        ds_gwl20=ds_2,
+        ds_gwl30=ds_3,
+        stippling_gwl15=stippling_1,
+        stippling_gwl20=stippling_2,
+        stippling_gwl30=stippling_3,
+        mask_australia=False,
+        mask_not_australia=False,
+        ticks=np.arange(-1*ticks_max, ticks_max*1.0001, 0.002),
+        tick_rotation=0,
+        vcentre=0,
+        tick_interval=4,
+        cbar_label="Change in frequency [per 6h]",
+        figsize=figsize,
+        title=f"{experiment.upper()}: Change in {time_selection} frequency \nof exceeding p99 {turbulence_index} - {P}hPa",
+        date_range="",
+        subplot_titles=subplot_titles,
+        area_linewidth=0.3,
+        xlim=(90, 195),
+        ylim=(-53.58, 13.63),
+        coastlines=True,
+        projection=ccrs.PlateCarree(130),
+        cmap=cmap_dict["anom"],
+        watermark="",
+        show_copyright=False,
+        baseline="1990 to 2009",
+        cbar_extend="both",
+        dataset_name="BARPA-R",
+        orientation="vertical",
+        savefig=False,
+    )
+
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, bbox_inches="tight", dpi=300)
+
+    return fig, axs
+
+
+def draw_futures_1plus3_2x2(
+    prepped,
+    figsize=(9,8),
+    ticks_max=0.02,
+    outfile=None,
+    save_fig=False,
+):
+    """
+    2x2 grid version for precomputed future maps.
+    Top-left: baseline (with its own colorbar underneath).
+    Top-right / Bottom-left / Bottom-right: anomaly panels (shared colorbar underneath bottom row).
+    """
+
+    ds_baseline = prepped["ds_baseline"]
+    ds_1, ds_2, ds_3 = prepped["ds_list"]
+    stippling_1, stippling_2, stippling_3 = prepped["agreement_list"]
+    time_slices = prepped["time_slices"]
+    time_selection = prepped["time_selection"]
+    turbulence_index = prepped["turbulence_index"]
+    P = prepped["P"]
+    experiment = prepped["experiment"]
+
+    map_list = [ds_baseline, ds_1, ds_2, ds_3]
+    stippling_list = [None, stippling_1, stippling_2, stippling_3]
+
+    letters = ["(a)", "(b)", "(c)", "(d)"]
+    panel_titles = [
+        f"{letters[i]} {start}-{end}"
+        for i, (start, end) in enumerate(time_slices)
+    ]
+
+    proj = ccrs.PlateCarree(130)
+
+    fig, axs_2d = plt.subplots(
+        nrows=2,
+        ncols=2,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},  # frame_on=True for borders
+    )
+
+    axs = axs_2d.flatten()
+
+    # Simplified title
+    fig.suptitle(
+        f"{experiment.upper()} · {time_selection} · {turbulence_index} p99 · {P} hPa",
+        fontsize=fontsize_title,
+        fontweight="normal",
+        y=0.995,
+    )
+
+    # Colormap / norms
+    base_ticks = np.arange(0, 0.071, 0.005)
+    anom_ticks = np.arange(-ticks_max, ticks_max * 1.0001, 0.002)
+
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    anom_cmap = crop_cmap_center(
+        cmap_dict["anom"].copy(), anom_ticks, 0, extend="both"
+    )
+    base_cmap.set_bad("lightgrey")
+    anom_cmap.set_bad("lightgrey")
+
+    base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
+    anom_norm = BoundaryNorm(anom_ticks, anom_cmap.N + 1, extend="both")
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+
+    last_base = None
+    last_anom = None
+
+    for i, ax in enumerate(axs):
+        da = map_list[i]
+        stip = stippling_list[i]
+
+        row, col = divmod(i, 2)
+
+        ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+        if i == 0:
+            last_base = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=base_cmap, norm=base_norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+        else:
+            last_anom = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=anom_cmap, norm=anom_norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+
+        if stip is not None:
+            ax.contourf(
+                stip.lon, stip.lat, stip,
+                alpha=0, hatches=["", "xxxxxx"],
+                transform=ccrs.PlateCarree(), zorder=4,
+            )
+
+        ax.add_geometries(
+            regions_dict["aus_states_territories"]["geometry"],
+            crs=ccrs.PlateCarree(),
+            facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+        )
+        ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+        try:
+            ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+        except Exception:
+            pass
+
+        # Add a visible border/spine around each panel
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("#cccccc")
+            spine.set_linewidth(0.5)
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            linewidth=0.4, color="black", alpha=0.20,
+            linestyle="--", draw_labels=True,
+            xpadding = 6, ypadding =6
+        )
+        gl.rotate_labels = False
+        gl.xlocator = mticker.FixedLocator(xticks)
+        gl.ylocator = mticker.FixedLocator(yticks)
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+
+        gl.left_labels   = (col == 0)
+        gl.right_labels  = False
+        gl.top_labels    = False
+        gl.bottom_labels = (row == 1)
+
+        gl.xlabel_style = {"fontsize": 7, "rotation": 0, "ha": "center"}
+        gl.ylabel_style = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        ax.set_title(
+            panel_titles[i],
+            loc="left", fontsize=fontsize_subtitle,
+            fontweight="normal", pad=2,
+        )
+
+    # Finalise layout
+    fig.subplots_adjust(
+        left=0.08, right=0.97,
+        top=0.93, bottom=0.22,
+        hspace=0.35, wspace=0.18,
+    )
+    fig.canvas.draw()
+
+    pos = [ax.get_position() for ax in axs]
+    # pos[0]=top-left (a), pos[1]=top-right (b)
+    # pos[2]=bottom-left (c), pos[3]=bottom-right (d)
+
+    cbar_h   = 0.022
+    cbar_gap = 0.032   # gap between panel bottom and colorbar top
+
+    # ── Colorbar 1: baseline — under panel (a) only ───────────────────────────
+    cax1 = fig.add_axes([
+        pos[0].x0,
+        pos[0].y0 - 0.02 - cbar_h,
+        pos[0].width,
+        cbar_h,
+    ])
+    cbar1 = fig.colorbar(
+        last_base, cax=cax1,
+        orientation="horizontal", extend="both",
+        ticks=base_ticks,
+    )
+    cbar1.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar1.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar1.set_label("Frequency [per 6 h]", fontsize=fontsize_cbar, labelpad=4)
+    cbar1.ax.xaxis.set_label_position("bottom")   # label below the bar
+
+    # ── Colorbar 2: anomaly — spanning panels (b), (c), (d) ─────────────────
+    # Span from left edge of (c) to right edge of (d) — i.e. the full bottom row
+    anom_x0 = pos[2].x0
+    anom_x1 = pos[3].x1
+    cax2 = fig.add_axes([
+        anom_x0,
+        pos[2].y0 - cbar_gap - cbar_h,
+        anom_x1 - anom_x0,
+        cbar_h,
+    ])
+    cbar2 = fig.colorbar(
+        last_anom, cax=cax2,
+        orientation="horizontal", extend="both",
+        ticks=anom_ticks,
+    )
+    cbar2.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar2.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar2.set_label(
+        "Change in frequency [per 6 h]",
+        fontsize=fontsize_cbar, labelpad=4,
+    )
+    cbar2.ax.xaxis.set_label_position("bottom")   # label below the bar
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs
+
+
+
+# PLOTTING EVALUATION VS HISTORICAL
+
+def plot_eval_vs_historical(
+    turbulence_index,
+    P,
+    time_selection,          # e.g. "annual", "MJJASO", "NDJFMA", "DJF", "MAM", "JJA", "SON", "January", etc.
+    ds=None,
+    filelist=None,
+    figsize=(10, 4),
+    ticks_max=None,
+    outfile=None,
+    save_fig=False,
+):
+    """
+    Two-panel spatial map: BARRA-R (left) vs historical MMM (right).
+
+    Parameters
+    ----------
+    turbulence_index : str
+        e.g. "TI1"
+    P : int
+        Pressure level in hPa, e.g. 250
+    time_selection : str
+        Any period string accepted by select_resample_time:
+        "annual", "MJJASO", "NDJFMA", "DJF", "MAM", "JJA", "SON",
+        or a month name e.g. "January"
+    ds : xarray.Dataset, optional
+        Pre-loaded dataset. If None, loads from filelist/default path.
+    filelist : list of str, optional
+        Glob file list — only used if ds is None.
+    """
+
+    # ── Resample to the requested time period (mirrors timeseries functions) ──
+    ds_resampled = select_resample_time(ds, time_selection)
+
+    da_eval = (
+        ds_resampled[turbulence_index]
+        .sel(run="evaluation_BARRA-R_r1i1p1f1")
+        .mean("time")
+    )
+
+    da_hist = (
+        ds_resampled[turbulence_index]
+        .sel(run=list_historical)
+        .mean(["time", "run"])
+    )
+
+    # ── Colormap / norm ───────────────────────────────────────────────────────
+    base_ticks = np.arange(0, 0.071, 0.005)
+    if ticks_max is not None:
+        base_ticks = np.arange(0, ticks_max * 1.0001, ticks_max / 14)
+
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    base_cmap.set_bad("lightgrey")
+    base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    proj   = ccrs.PlateCarree(130)
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    fig, axs = plt.subplots(
+        nrows=1, ncols=2,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+    )
+
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {time_selection}",
+        fontsize=fontsize_title,
+        fontweight="normal",
+        y=1.01,
+    )
+
+    panel_data   = [da_eval, da_hist]
+    panel_titles = ["(a) BARRA-R", "(b) Historical MMM"]
+    last_im = None
+
+    for i, (ax, da, title) in enumerate(zip(axs, panel_data, panel_titles)):
+
+        ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+        last_im = ax.pcolormesh(
+            da.lon, da.lat, da,
+            cmap=base_cmap, norm=base_norm,
+            transform=ccrs.PlateCarree(), zorder=2,
+        )
+
+        ax.add_geometries(
+            regions_dict["aus_states_territories"]["geometry"],
+            crs=ccrs.PlateCarree(),
+            facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+        )
+        ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+        try:
+            ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+        except Exception:
+            pass
+
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("#aaaaaa")
+            spine.set_linewidth(0.8)
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            linewidth=0.4, color="black", alpha=0.20,
+            linestyle="--", draw_labels=True,
+        )
+        gl.rotate_labels  = False
+        gl.xlocator       = mticker.FixedLocator(xticks)
+        gl.ylocator       = mticker.FixedLocator(yticks)
+        gl.xformatter     = LONGITUDE_FORMATTER
+        gl.yformatter     = LATITUDE_FORMATTER
+        gl.left_labels    = (i == 0)
+        gl.right_labels   = False
+        gl.top_labels     = False
+        gl.bottom_labels  = True
+        gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+        gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
+                     fontweight="normal", pad=2)
+
+    # ── Shared colorbar ───────────────────────────────────────────────────────
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.90, bottom=0.22, wspace=0.18)
+    fig.canvas.draw()
+
+    pos     = [ax.get_position() for ax in axs]
+    cbar_h  = 0.022
+    cbar_gap = 0.055
+
+    cax = fig.add_axes([
+        pos[0].x0,
+        pos[0].y0 - cbar_gap - cbar_h,
+        pos[1].x1 - pos[0].x0,
+        cbar_h,
+    ])
+    cbar = fig.colorbar(
+        last_im, cax=cax,
+        orientation="horizontal", extend="max",
+        ticks=base_ticks,
+    )
+    cbar.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar.set_label("Frequency [per 6 h]", fontsize=fontsize_cbar, labelpad=4)
+    cbar.ax.xaxis.set_label_position("bottom")
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs
+
+
+# updated func which combines all time selection options onto one figure:
+
+# Define groupings — mirrors the timeseries functions
+TIME_GROUPS = {
+    "monthly": ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"],
+    "seasonal": ["DJF", "MAM", "JJA", "SON"],
+    "coolwarm": ["MJJASO", "NDJFMA"],
+}
+
+def plot_eval_vs_mmmhist(
+    turbulence_index,
+    P,
+    time_selection,          # "annual", "monthly", "seasonal", "coolwarm",
+                             # or any single period e.g. "MJJASO", "JJA", "January"
+    ds=None,
+    filelist=None,
+    figsize=None,            # auto-set based on layout if None
+    ticks_max=None,
+    outfile=None,
+    save_fig=False,
+):
+    """
+    Spatial map(s) comparing BARRA-R (left) vs historical MMM (right).
+
+    Single time_selection  → 1x2 figure
+    "coolwarm"             → 2x2 figure (MJJASO top, NDJFMA bottom)
+    "seasonal"             → 4x2 figure (DJF, MAM, JJA, SON)
+    "monthly"              → 12x2 figure (all months)
+    """
+
+    # ── Load data if not provided ─────────────────────────────────────────────
+    if ds is None:
+        if filelist is None:
+            filelist = glob.glob(
+                f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/"
+                f"freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*.nc"
+            )
+        ds = xr.open_mfdataset(
+            filelist,
+            combine="nested",
+            concat_dim="run",
+            join="outer",
+            coords="different",
+            compat="no_conflicts",
+        )
+
+    # ── Resolve the list of periods to plot ───────────────────────────────────
+    if time_selection in TIME_GROUPS:
+        periods = TIME_GROUPS[time_selection]
+    else:
+        periods = [time_selection]   # single panel pair
+
+    n_rows = len(periods)
+
+    # ── Figure size ───────────────────────────────────────────────────────────
+    if figsize is None:
+        figsize = (10, 4 * n_rows)
+
+    # ── Colormap / norm ───────────────────────────────────────────────────────
+    base_ticks = np.arange(0, 0.071, 0.005)
+    if ticks_max is not None:
+        base_ticks = np.arange(0, ticks_max * 1.0001, ticks_max / 14)
+
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    base_cmap.set_bad("lightgrey")
+    base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    proj   = ccrs.PlateCarree(130)
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    fig, axs_2d = plt.subplots(
+        nrows=n_rows, ncols=2,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,   # always 2D array even if n_rows=1
+    )
+
+    last_im = None
+
+    for row, period in enumerate(periods):
+
+        ds_resampled = select_resample_time(ds, period)
+
+        da_eval = (
+            ds_resampled[turbulence_index]
+            .sel(run="evaluation_BARRA-R_r1i1p1f1")
+            .mean("time")
+        )
+        da_hist = (
+            ds_resampled[turbulence_index]
+            .sel(run=list_historical)
+            .mean(["time", "run"])
+        )
+
+        panel_data   = [da_eval, da_hist]
+        panel_titles = [f"BARRA-R: {period}", f"Historical MMM: {period}"]
+
+        for col, (ax, da, title) in enumerate(zip(axs_2d[row], panel_data, panel_titles)):
+
+            ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+            last_im = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=base_cmap, norm=base_norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+
+            ax.add_geometries(
+                regions_dict["aus_states_territories"]["geometry"],
+                crs=ccrs.PlateCarree(),
+                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+            )
+            ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+            try:
+                ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+            except Exception:
+                pass
+
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor("#aaaaaa")
+                spine.set_linewidth(0.8)
+
+            gl = ax.gridlines(
+                crs=ccrs.PlateCarree(),
+                linewidth=0.4, color="black", alpha=0.20,
+                linestyle="--", draw_labels=True,
+            )
+            gl.rotate_labels  = False
+            gl.xlocator       = mticker.FixedLocator(xticks)
+            gl.ylocator       = mticker.FixedLocator(yticks)
+            gl.xformatter     = LONGITUDE_FORMATTER
+            gl.yformatter     = LATITUDE_FORMATTER
+            gl.left_labels    = (col == 0)
+            gl.right_labels   = False
+            gl.top_labels     = False
+            gl.bottom_labels  = (row == n_rows - 1)   # only on last row
+            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+            ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
+                         fontweight="normal", pad=2)
+
+    # ── Shared colorbar at the bottom ─────────────────────────────────────────
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.99, bottom=0.08,
+                        wspace=0.18)
+    fig.canvas.draw()
+
+    panel_height = 0.7 / n_rows   # total plotting area divided by rows
+    panel_gap    = 0.01             # fixed small gap between rows
+
+    for row in range(n_rows):
+        for col in range(2):
+            pos = axs_2d[row, col].get_position()
+            axs_2d[row, col].set_position([
+                pos.x0,
+                0.05 + (n_rows - row - 1) * (panel_height + panel_gap),
+                pos.width,
+                panel_height,
+            ])
+
+    # Redraw to get updated positions for colorbar
+    fig.canvas.draw()
+
+    top_of_panels = 0.05 + (n_rows - 1) * (panel_height + panel_gap) + panel_height
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {time_selection}",
+        fontsize=fontsize_title,
+        fontweight="normal",
+        y=top_of_panels + 0.03,   # just above the top panel
+    )
+
+    # Span full width of the bottom row
+    pos_bl = axs_2d[-1, 0].get_position()   # bottom-left panel
+    pos_br = axs_2d[-1, 1].get_position()   # bottom-right panel
+
+    cbar_h   = 0.018 / n_rows
+    cbar_gap = 0.09 / n_rows
+
+    cax = fig.add_axes([
+        pos_bl.x0,
+        pos_bl.y0 - cbar_gap - cbar_h,
+        pos_br.x1 - pos_bl.x0,
+        cbar_h,
+    ])
+    cbar = fig.colorbar(
+        last_im, cax=cax,
+        orientation="horizontal", extend="both",
+        ticks=base_ticks,
+    )
+    cbar.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar.set_label("Frequency [per 6 h]", fontsize=fontsize_cbar, labelpad=4)
+    cbar.ax.xaxis.set_label_position("bottom")
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs_2d
+
+
+# Plot with 3 coloumns - one for the difference:
+
+def plot_eval_vs_mmmhist_with_diff(
+    turbulence_index,
+    P,
+    time_selection,
+    ds=None,
+    filelist=None,
+    figsize=None,
+    ticks_max=None,
+    ticks_diff=None,
+    share_cbar=True,   
+    outfile=None,
+    save_fig=False,
+):
+    """
+    Spatial map(s): BARRA-R (left) | Historical MMM (centre) | Difference (right).
+
+    Single time_selection  → 1×3 figure
+    "coolwarm"             → 2×3 figure
+    "seasonal"             → 4×3 figure
+    "monthly"              → 12×3 figure
+
+    share_cbar=True  → one shared colorbar per column group (base + diff)
+    share_cbar=False → each row has its own colorbars, scaled to that row's data
+                       base ticks run 0→row max, diff ticks are symmetric about 0
+    """
+
+    # ── Load data ─────────────────────────────────────────────────────────────
+    if ds is None:
+        if filelist is None:
+            filelist = glob(
+                f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/"
+                f"freq-above-p99/{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*.nc"
+            )
+        ds = xr.open_mfdataset(
+            filelist,
+            combine="nested",
+            concat_dim="run",
+            join="outer",
+            coords="different",
+            compat="no_conflicts",
+        )
+
+    # ── Periods ───────────────────────────────────────────────────────────────
+    if time_selection in TIME_GROUPS:
+        periods = TIME_GROUPS[time_selection]
+    else:
+        periods = [time_selection]
+
+    n_rows = len(periods)
+
+    # ── Pre-compute all data arrays (needed for tick range calculations) ───────
+    row_data = []
+    for period in periods:
+        ds_r = select_resample_time(ds, period)
+        da_eval = (
+            ds_r[turbulence_index]
+            .sel(run="evaluation_BARRA-R_r1i1p1f1")
+            .mean("time")
+        )
+        da_hist = (
+            ds_r[turbulence_index]
+            .sel(run=list_historical)
+            .mean(["time", "run"])
+        )
+        da_diff = da_hist - da_eval
+        row_data.append((da_eval, da_hist, da_diff))
+
+    # ── Figure size ───────────────────────────────────────────────────────────
+    if figsize is None:
+        figsize = (15, 4 * n_rows) if share_cbar else (15, 4.5 * n_rows)
+
+    # ── Base colormap ─────────────────────────────────────────────────────────
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    base_cmap.set_bad("lightgrey")
+
+    # ── Diff colormap ─────────────────────────────────────────────────────────
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    # ── Global ticks (used when share_cbar=True) ──────────────────────────────
+    if share_cbar:
+        global_base_ticks = np.arange(0, 0.071, 0.005)
+        if ticks_max is not None:
+            global_base_ticks = np.arange(0, ticks_max * 1.0001, ticks_max / 14)
+
+        if ticks_diff is None:
+            global_diff_max = float(np.max([
+                np.nanmax(np.abs(da_diff.values))
+                for _, _, da_diff in row_data
+            ]))
+        else:
+            global_diff_max = ticks_diff
+        diff_step = global_diff_max / 7
+        global_diff_ticks = np.arange(
+            -global_diff_max, global_diff_max + diff_step * 0.001, diff_step
+        )
+
+    # ── Shared map settings ───────────────────────────────────────────────────
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    proj   = ccrs.PlateCarree(130)
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    fig, axs_2d = plt.subplots(
+        nrows=n_rows, ncols=3,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,
+    )
+
+    # Store the last plotted images per row for per-row colorbars,
+    # or globally for shared colorbars
+    row_ims = []   # list of (base_im, diff_im) per row
+
+    for row, (period, (da_eval, da_hist, da_diff)) in enumerate(
+        zip(periods, row_data)
+    ):
+        # ── Per-row ticks ──────────────────────────────────────────────────────
+        if share_cbar:
+            base_ticks = global_base_ticks
+            diff_ticks = global_diff_ticks
+        else:
+            row_base_max = float(np.nanmax([
+                np.nanmax(da_eval.values),
+                np.nanmax(da_hist.values),
+            ]))
+            if ticks_max is not None:
+                row_base_max = ticks_max
+            base_ticks = np.arange(0, row_base_max * 1.0001, row_base_max / 14)
+
+            row_diff_max = float(np.nanmax(np.abs(da_diff.values)))
+            diff_step    = row_diff_max / 7
+            diff_ticks   = np.arange(
+                -row_diff_max, row_diff_max + diff_step * 0.001, diff_step
+            )
+
+        base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
+        diff_norm = BoundaryNorm(diff_ticks, diff_cmap.N + 1, extend="both")
+
+        panel_data   = [da_eval,                    da_hist,                       da_diff]
+        panel_titles = [f"BARRA-R: {period}",       f"Historical MMM: {period}",   f"MMM - BARRA-R: {period}"]
+        panel_cmaps  = [base_cmap,                  base_cmap,                     diff_cmap]
+        panel_norms  = [base_norm,                  base_norm,                     diff_norm]
+
+        base_im = diff_im = None
+
+        for col, (ax, da, title, cmap, norm) in enumerate(
+            zip(axs_2d[row], panel_data, panel_titles, panel_cmaps, panel_norms)
+        ):
+            ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+            im = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=cmap, norm=norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+            if col < 2:
+                base_im = im
+            else:
+                diff_im = im
+
+            ax.add_geometries(
+                regions_dict["aus_states_territories"]["geometry"],
+                crs=ccrs.PlateCarree(),
+                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+            )
+            ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+            try:
+                ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+            except Exception:
+                pass
+
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor("#aaaaaa")
+                spine.set_linewidth(0.8)
+
+            gl = ax.gridlines(
+                crs=ccrs.PlateCarree(),
+                linewidth=0.4, color="black", alpha=0.20,
+                linestyle="--", draw_labels=True,
+            )
+            gl.rotate_labels  = False
+            gl.xlocator       = mticker.FixedLocator(xticks)
+            gl.ylocator       = mticker.FixedLocator(yticks)
+            gl.xformatter     = LONGITUDE_FORMATTER
+            gl.yformatter     = LATITUDE_FORMATTER
+            gl.left_labels    = (col == 0)
+            gl.right_labels   = False
+            gl.top_labels     = False
+            gl.bottom_labels  = (row == n_rows - 1) if share_cbar else False
+            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+            ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
+                         fontweight="normal", pad=2)
+
+        row_ims.append((base_im, diff_im, base_ticks, diff_ticks))
+
+    # ── Layout ────────────────────────────────────────────────────────────────
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.99, bottom=0.08,
+                        wspace=0.18)
+    fig.canvas.draw()
+
+    if share_cbar:
+        cbar_h       = 0.018 / n_rows
+        cbar_gap     = 0.09  / n_rows
+        panel_gap    = 0.01
+        panel_height = 0.7 / n_rows
+    else:
+        cbar_h       = 0.030 / n_rows
+        cbar_gap     = 0.012 / n_rows
+        inter_gap    = 0.020 / n_rows
+        panel_gap    = cbar_gap + cbar_h + inter_gap
+        panel_height = (0.85 - n_rows * (cbar_gap + cbar_h)
+                        - (n_rows - 1) * inter_gap) / n_rows
+
+    for row in range(n_rows):
+        for col in range(3):
+            pos = axs_2d[row, col].get_position()
+            axs_2d[row, col].set_position([
+                pos.x0,
+                0.05 + (n_rows - row - 1) * (panel_height + panel_gap),
+                pos.width,
+                panel_height,
+            ])
+
+    fig.canvas.draw()
+
+    top_of_panels = 0.05 + (n_rows - 1) * (panel_height + panel_gap) + panel_height
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {time_selection}",
+        fontsize=fontsize_title,
+        fontweight="normal",
+        y=top_of_panels + 0.03,
+    )
+
+    # ── Colorbars ─────────────────────────────────────────────────────────────
+    def _add_cbar(im, ticks, ax_left, ax_right, y_bottom, label):
+        pos_l = ax_left.get_position()
+        pos_r = ax_right.get_position()
+        cax = fig.add_axes([
+            pos_l.x0,
+            y_bottom,
+            pos_r.x1 - pos_l.x0,
+            cbar_h,
+        ])
+        cbar = fig.colorbar(im, cax=cax, orientation="horizontal",
+                            extend="both", ticks=ticks)
+        cbar.ax.tick_params(labelsize=7, pad=2)
+        for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+            lbl.set_visible(j % 2 == 0)
+        cbar.set_label(label, fontsize=fontsize_cbar, labelpad=4)
+        cbar.ax.xaxis.set_label_position("bottom")
+        return cbar
+
+    if share_cbar:
+        # Two colorbars under the bottom row only
+        base_im, diff_im, base_ticks, diff_ticks = row_ims[-1]
+        pos_bl = axs_2d[-1, 0].get_position()
+        pos_bm = axs_2d[-1, 1].get_position()
+        pos_br = axs_2d[-1, 2].get_position()
+        y_cbar = pos_bl.y0 - cbar_gap - cbar_h
+
+        _add_cbar(base_im, global_base_ticks,
+                  axs_2d[-1, 0], axs_2d[-1, 1], y_cbar, "Frequency [per 6 h]")
+        _add_cbar(diff_im, global_diff_ticks,
+                  axs_2d[-1, 2], axs_2d[-1, 2], y_cbar, "Difference [per 6 h]")
+    else:
+        # One pair of colorbars per row
+        for row, (base_im, diff_im, base_ticks, diff_ticks) in enumerate(row_ims):
+            pos_row = axs_2d[row, 0].get_position()
+            y_cbar  = pos_row.y0 - cbar_gap - cbar_h
+
+            _add_cbar(base_im, base_ticks,
+                      axs_2d[row, 0], axs_2d[row, 1], y_cbar, "Frequency [per 6 h]")
+            _add_cbar(diff_im, diff_ticks,
+                      axs_2d[row, 2], axs_2d[row, 2], y_cbar, "Difference [per 6 h]")
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs_2d
+
+
+
+
+
+# PLOT AND PREP FUTURE SCENARIOS AND HISTORICAL DIFFERENCE PER TIME SELECTION
+
+import pickle
+
+
+def prep_hist_vs_future_with_diff(
+    turbulence_index,
+    P,
+    time_selection,
+    experiment="ssp370",
+    future_period=("2040", "2059"),
+    all_agree_except=1,
+    pickle_path=None,   
+):
+    """
+    Load and compute all per-period arrays needed by draw_hist_vs_future_with_diff.
+    Optionally saves the result to a pickle file so it can be reloaded instantly.
+
+    Parameters
+    ----------
+    pickle_path : str or None
+        If given, saves the prepped dict to this path after computation.
+        Load it later with:
+            import pickle
+            with open(pickle_path, "rb") as f:
+                prepped = pickle.load(f)
+    """
+
+    if time_selection in TIME_GROUPS:
+        periods = TIME_GROUPS[time_selection]
+    else:
+        periods = [time_selection]
+
+    # ── File discovery ────────────────────────────────────────────────────────
+    glob_list = glob(
+        f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/"
+        f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_*_BOM_BARPA-R_v1-r1_6hr.nc"
+    )
+
+    def _make_path(run):
+        return (
+            f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/freq-above-p99/"
+            f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_{run}_BOM_BARPA-R_v1-r1_6hr.nc"
+        )
+
+    hist_files   = [f for f in [_make_path(r) for r in list_historical]         if f in glob_list]
+    future_runs  = [experiment + r[10:] for r in list_historical]
+    future_files = [f for f in [_make_path(r) for r in future_runs]              if f in glob_list]
+
+    def _preprocess(ds):
+        return ds.sel(lon=lon_slice)
+
+    ds_hist_raw = xr.open_mfdataset(
+        hist_files,
+        concat_dim="run", combine="nested",
+        preprocess=_preprocess,
+        join="outer", coords="different", compat="no_conflicts",
+        chunks={"lat": 160, "lon": -1}
+    )
+    ds_hist_raw["run"] = [r[r.index("_")+1:] for r in ds_hist_raw["run"].values]
+
+    ds_future_raw = xr.open_mfdataset(
+        future_files,
+        concat_dim="run", combine="nested",
+        preprocess=_preprocess,
+        join="outer", coords="different", compat="no_conflicts",
+        chunks={"lat": 160, "lon": -1}
+    )
+    ds_future_raw["run"] = [r[r.index("_")+1:] for r in ds_future_raw["run"].values]
+
+    common_runs = [r for r in ds_hist_raw["run"].values
+                   if r in set(ds_future_raw["run"].values)]
+    print(f"Common runs for {experiment}: {common_runs}")
+
+    ds_hist_raw   = ds_hist_raw.sel(run=common_runs)
+    ds_future_raw = ds_future_raw.sel(run=common_runs)
+
+    agreement_threshold = len(common_runs) - all_agree_except
+
+    # Concatenate so select_resample_time spans the full record
+    ds_combined = xr.concat(
+        [ds_hist_raw, ds_future_raw],
+        dim="time", coords="minimal", join="outer", compat="override",
+    )
+
+    # ── Per-period computation ─────────────────────────────────────────────────
+    row_data = {}
+    for period in periods:
+        print(f"  Processing {period}...")
+        ds_r = select_resample_time(ds_combined, period)
+
+        da_hist_runs   = ds_r[turbulence_index].sel(time=baseline_time_slice).mean("time")
+        da_future_runs = ds_r[turbulence_index].sel(time=slice(*future_period)).mean("time")
+
+        da_hist_mmm   = da_hist_runs.mean("run")
+        da_future_mmm = da_future_runs.mean("run")
+
+        da_delta_runs = da_future_runs - da_hist_runs
+        da_diff_mmm   = da_delta_runs.mean("run")
+
+        agree_mask = (
+            ((da_delta_runs > 0).sum("run") >= agreement_threshold) |
+            ((da_delta_runs < 0).sum("run") >= agreement_threshold)
+        )
+        agree_mask = (agree_mask.coarsen(lat=20, lon=20, boundary="pad").mean() > 0.4)
+
+        # Load into memory now so the pickle is self-contained
+        row_data[period] = (
+            da_hist_mmm.load(),
+            da_future_mmm.load(),
+            da_diff_mmm.load(),
+            agree_mask.load(),
+            da_delta_runs.load()
+        )
+        print(f"  Done {period}.")
+
+    # close file handles now all data is loaded into memory
+    ds_combined.close()
+    ds_hist_raw.close()
+    ds_future_raw.close()
+
+
+    prepped = {
+        "periods":           periods,
+        "row_data":          row_data,
+        "time_selection":    time_selection,
+        "turbulence_index":  turbulence_index,
+        "P":                 P,
+        "experiment":        experiment,
+        "future_period":     future_period,
+        "common_runs":       common_runs,
+    }
+
+    if pickle_path is not None:
+        with open(pickle_path, "wb") as f:
+            pickle.dump(prepped, f)
+        print(f"Saved prepped data to: {pickle_path}")
+
+    return prepped
+
+
+def draw_hist_vs_future_with_diff(
+    prepped,
+    figsize=None,
+    ticks_max=None,
+    ticks_diff=None,
+    share_cbar=True,
+    outfile=None,
+    save_fig=False,
+    time_selection=None,
+):
+    """
+    Draw the three-column map from prepped data produced by prep_hist_vs_future_with_diff.
+
+    Col 0 : Historical MMM (1990-2009)
+    Col 1 : Future scenario MMM
+    Col 2 : Future - Historical, with model-agreement stippling
+
+    share_cbar=True  -> one colorbar pair at the bottom of the figure
+    share_cbar=False -> per-row colorbars scaled to each row's data
+    """
+
+    periods  = _resolve_periods(prepped, time_selection)
+    row_data = [prepped["row_data"][p] for p in periods]
+    time_selection = time_selection or prepped["time_selection"]
+    turbulence_index = prepped["turbulence_index"]
+    P                = prepped["P"]
+    experiment       = prepped["experiment"]
+    future_period    = prepped["future_period"]
+
+    n_rows = len(periods)
+
+    if figsize is None:
+        figsize = (15, 4 * n_rows) if share_cbar else (15, 4.5 * n_rows)
+
+    # ── Colormaps ─────────────────────────────────────────────────────────────
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    base_cmap.set_bad("lightgrey")
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    # ── Global ticks ──────────────────────────────────────────────────────────
+    if share_cbar:
+        global_base_ticks = np.arange(0, 0.071, 0.005)
+        if ticks_max is not None:
+            global_base_ticks = np.arange(0, ticks_max * 1.0001, ticks_max / 14)
+
+        global_diff_max = ticks_diff if ticks_diff is not None else float(
+            np.max([np.nanmax(np.abs(da_diff.values)) for _, _, da_diff, _, _ in row_data])
+        )
+        diff_step = global_diff_max / 7
+        global_diff_ticks = np.arange(
+            -global_diff_max, global_diff_max + diff_step * 0.001, diff_step
+        )
+
+    # --------------------------------- Plot formatting ---------------------------------
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    proj   = ccrs.PlateCarree(130)
+
+    fig, axs_2d = plt.subplots(
+        nrows=n_rows, ncols=3,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,
+    )
+
+    row_ims = []
+
+    for row, (period, (da_hist_mmm, da_future_mmm, da_diff_mmm, agree_mask, _)) in enumerate(
+        zip(periods, row_data)
+    ):
+        if share_cbar:
+            base_ticks = global_base_ticks
+            diff_ticks = global_diff_ticks
+        else:
+            row_base_max = ticks_max if ticks_max is not None else float(
+                np.nanmax([np.nanmax(da_hist_mmm.values), np.nanmax(da_future_mmm.values)])
+            )
+            base_ticks = np.arange(0, row_base_max * 1.0001, row_base_max / 14)
+
+            row_diff_max = float(np.nanmax(np.abs(da_diff_mmm.values)))
+            diff_step    = row_diff_max / 7
+            diff_ticks   = np.arange(
+                -row_diff_max, row_diff_max + diff_step * 0.001, diff_step
+            )
+
+        base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
+        diff_norm = BoundaryNorm(diff_ticks, diff_cmap.N + 1, extend="both")
+
+        future_label = f"{future_period[0]}-{future_period[1]}"
+        panel_data   = [da_hist_mmm,                  da_future_mmm,                                      da_diff_mmm]
+        panel_titles = [f"Historical MMM: {period}",  f"{experiment.upper()} MMM ({future_label}): {period}", f"{experiment.upper()} - Historical: {period}"]
+        panel_cmaps  = [base_cmap,                    base_cmap,                                          diff_cmap]
+        panel_norms  = [base_norm,                    base_norm,                                          diff_norm]
+
+        base_im = diff_im = None
+
+        for col, (ax, da, title, cmap, norm) in enumerate(
+            zip(axs_2d[row], panel_data, panel_titles, panel_cmaps, panel_norms)
+        ):
+            ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+            im = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=cmap, norm=norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+            if col < 2:
+                base_im = im
+            else:
+                diff_im = im
+                ax.contourf(
+                    agree_mask.lon, agree_mask.lat, agree_mask,
+                    alpha=0, hatches=["", "xxxxxx"],
+                    transform=ccrs.PlateCarree(), zorder=4,
+                )
+
+            ax.add_geometries(
+                regions_dict["aus_states_territories"]["geometry"],
+                crs=ccrs.PlateCarree(),
+                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+            )
+            ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+            try:
+                ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+            except Exception:
+                pass
+
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor("#aaaaaa")
+                spine.set_linewidth(0.8)
+
+            gl = ax.gridlines(
+                crs=ccrs.PlateCarree(),
+                linewidth=0.4, color="black", alpha=0.20,
+                linestyle="--", draw_labels=True,
+            )
+            gl.rotate_labels  = False
+            gl.xlocator       = mticker.FixedLocator(xticks)
+            gl.ylocator       = mticker.FixedLocator(yticks)
+            gl.xformatter     = LONGITUDE_FORMATTER
+            gl.yformatter     = LATITUDE_FORMATTER
+            gl.left_labels    = (col == 0)
+            gl.right_labels   = False
+            gl.top_labels     = False
+            gl.bottom_labels  = (row == n_rows - 1) if share_cbar else False
+            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+            ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
+                         fontweight="normal", pad=2)
+
+        row_ims.append((base_im, diff_im, base_ticks, diff_ticks))
+
+    # --------------------------------- Layout ---------------------------------
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.99, bottom=0.08, wspace=0.18)
+    fig.canvas.draw()
+
+    if share_cbar:
+        cbar_h       = 0.018 / n_rows
+        cbar_gap     = 0.12  / n_rows   
+        panel_gap    = 0.01
+        panel_height = 0.7 / n_rows
+    else:
+        cbar_h       = 0.030 / n_rows
+        cbar_gap     = 0.025 / n_rows   
+        inter_gap    = 0.020 / n_rows
+        panel_gap    = cbar_gap + cbar_h + inter_gap
+        panel_height = (0.85 - n_rows * (cbar_gap + cbar_h)
+                        - (n_rows - 1) * inter_gap) / n_rows
+
+    for row in range(n_rows):
+        for col in range(3):
+            pos = axs_2d[row, col].get_position()
+            axs_2d[row, col].set_position([
+                pos.x0,
+                0.05 + (n_rows - row - 1) * (panel_height + panel_gap),
+                pos.width,
+                panel_height,
+            ])
+
+    fig.canvas.draw()
+
+    top_of_panels = 0.05 + (n_rows - 1) * (panel_height + panel_gap) + panel_height
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {experiment.upper()} {future_period[0]}–{future_period[1]} · {time_selection}",
+        fontsize=fontsize_title,
+        fontweight="normal",
+        y=top_of_panels + 0.03,
+    )
+
+    # ── Colorbars ---------------------------------
+    def _add_cbar(im, ticks, ax_left, ax_right, y_bottom, label):
+        pos_l = ax_left.get_position()
+        pos_r = ax_right.get_position()
+        cax = fig.add_axes([pos_l.x0, y_bottom, pos_r.x1 - pos_l.x0, cbar_h])
+        cbar = fig.colorbar(im, cax=cax, orientation="horizontal",
+                            extend="both", ticks=ticks)
+        cbar.ax.tick_params(labelsize=7, pad=2)
+        for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+            lbl.set_visible(j % 2 == 0)
+        cbar.set_label(label, fontsize=fontsize_cbar, labelpad=4)
+        cbar.ax.xaxis.set_label_position("bottom")
+        return cbar
+
+    if share_cbar:
+        y_cbar = axs_2d[-1, 0].get_position().y0 - cbar_gap - cbar_h
+        _add_cbar(row_ims[-1][0], global_base_ticks,
+                  axs_2d[-1, 0], axs_2d[-1, 1], y_cbar, "Frequency [per 6 h]")
+        _add_cbar(row_ims[-1][1], global_diff_ticks,
+                  axs_2d[-1, 2], axs_2d[-1, 2], y_cbar, "Change in frequency [per 6 h]")
+    else:
+        for row, (base_im, diff_im, base_ticks, diff_ticks) in enumerate(row_ims):
+            y_cbar = axs_2d[row, 0].get_position().y0 - cbar_gap - cbar_h
+            _add_cbar(base_im, base_ticks,
+                      axs_2d[row, 0], axs_2d[row, 1], y_cbar, "Frequency [per 6 h]")
+            _add_cbar(diff_im, diff_ticks,
+                      axs_2d[row, 2], axs_2d[row, 2], y_cbar, "Change in frequency [per 6 h]")
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs_2d
+
+
+def _resolve_periods(prepped, time_selection=None):
+    available = list(prepped["row_data"].keys())
+    if time_selection is None:
+        return available
+    if time_selection in TIME_GROUPS:
+        return [p for p in TIME_GROUPS[time_selection] if p in prepped["row_data"]]
+    if time_selection in prepped["row_data"]:
+        return [time_selection]
+    raise ValueError(f"'{time_selection}' not in TIME_GROUPS or prepped row_data")
+
+
+def draw_per_model_diff(
+    prepped,
+    figsize=None,
+    ticks_diff=None,          # None=auto per period, scalar=shared, dict={period: val}
+    outfile=None,
+    save_fig=False,
+    time_selection=None,
+    n_cols=3,
+):
+    periods  = _resolve_periods(prepped, time_selection)
+    row_data = [prepped["row_data"][p] for p in periods]
+    common_runs      = prepped["common_runs"]
+    turbulence_index = prepped["turbulence_index"]
+    P                = prepped["P"]
+    experiment       = prepped["experiment"]
+    future_period    = prepped["future_period"]
+    time_selection_label = time_selection or prepped["time_selection"]
+
+    n_periods    = len(periods)
+    n_models     = len(common_runs)
+    n_model_rows = math.ceil(n_models / n_cols)
+    n_rows       = n_periods * n_model_rows
+
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    if figsize is None:
+        figsize = (4 * n_cols, 3.5 * n_rows)
+
+    proj   = ccrs.PlateCarree(130)
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+
+    fig, axs_2d = plt.subplots(
+        nrows=n_rows, ncols=n_cols,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,
+    )
+
+    period_ims = []   # (last_im, diff_ticks) one entry per period
+
+    for period_idx, (period, row_tuple) in enumerate(zip(periods, row_data)):
+        da_delta_runs = row_tuple[4]
+
+        # ── Per-period ticks ──────────────────────────────────────────────────
+        if ticks_diff is None:
+            period_diff_max = float(np.nanmax(np.abs(da_delta_runs.values)))
+        elif isinstance(ticks_diff, dict):
+            period_diff_max = ticks_diff.get(period, float(np.nanmax(np.abs(da_delta_runs.values))))
+        else:
+            period_diff_max = float(ticks_diff)
+
+        period_diff_step  = period_diff_max / 7
+        period_diff_ticks = np.arange(
+            -period_diff_max, period_diff_max + period_diff_step * 0.001, period_diff_step
+        )
+        period_diff_norm = BoundaryNorm(period_diff_ticks, diff_cmap.N + 1, extend="both")
+
+        last_im = None
+        last_fig_row_of_period = (period_idx + 1) * n_model_rows - 1
+
+        for model_idx, run in enumerate(common_runs):
+            fig_row = period_idx * n_model_rows + model_idx // n_cols
+            fig_col = model_idx % n_cols
+            ax = axs_2d[fig_row, fig_col]
+            da = da_delta_runs.sel(run=run)
+
+            ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+            last_im = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=diff_cmap, norm=period_diff_norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+            ax.add_geometries(
+                regions_dict["aus_states_territories"]["geometry"],
+                crs=ccrs.PlateCarree(),
+                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+            )
+            ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+            try:
+                ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+            except Exception:
+                pass
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor("#aaaaaa")
+                spine.set_linewidth(0.8)
+
+            run_label = run.split("_")[0] if "_" in run else run
+            ax.set_title(f"{run_label}: {period}", loc="left",
+                         fontsize=fontsize_subtitle, fontweight="normal", pad=2)
+
+            gl = ax.gridlines(
+                crs=ccrs.PlateCarree(),
+                linewidth=0.4, color="black", alpha=0.20,
+                linestyle="--", draw_labels=True,
+            )
+            gl.rotate_labels  = False
+            gl.xlocator       = mticker.FixedLocator(xticks)
+            gl.ylocator       = mticker.FixedLocator(yticks)
+            gl.xformatter     = LONGITUDE_FORMATTER
+            gl.yformatter     = LATITUDE_FORMATTER
+            gl.left_labels    = (fig_col == 0)
+            gl.right_labels   = False
+            gl.top_labels     = False
+            gl.bottom_labels  = (fig_row == last_fig_row_of_period)
+            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        # hide unused axes in last model row of this period
+        for empty_col in range(n_models % n_cols or n_cols, n_cols):
+            axs_2d[last_fig_row_of_period, empty_col].set_visible(False)
+
+        period_ims.append((last_im, period_diff_ticks))
+
+    # ── Layout — compute row y-positions from bottom up ───────────────────────
+    cbar_h       = 0.018
+    cbar_gap     = 0.012
+    panel_gap    = 0.008   # between rows within a period
+    period_sep   = 0.015   # extra gap between period groups
+
+    # work out panel height to fill the figure
+    total_fixed = (
+        0.05                                              # bottom margin
+        + n_periods * (cbar_h + cbar_gap)                # colorbars + gaps above them
+        + (n_rows - n_periods) * panel_gap               # within-period row gaps
+        + (n_periods - 1) * period_sep                   # between-period separators
+        + 0.08                                            # top margin for suptitle
+    )
+    panel_h = (1.0 - total_fixed) / n_rows
+
+    fig.subplots_adjust(left=0.05, right=0.97, top=0.95, bottom=0.05,
+                        wspace=0.15, hspace=0.3)
+    fig.canvas.draw()
+
+    # compute y_bottom for every row and every colorbar
+    row_y_bottoms = {}
+    cbar_ys       = {}
+    y_cursor = 0.05
+
+    for period_idx in range(n_periods - 1, -1, -1):   # bottom period first
+        cbar_ys[period_idx] = y_cursor
+        y_cursor += cbar_h + cbar_gap
+
+        for row_within in range(n_model_rows - 1, -1, -1):   # bottom row of period first
+            fig_row = period_idx * n_model_rows + row_within
+            row_y_bottoms[fig_row] = y_cursor
+            y_cursor += panel_h
+            if row_within > 0:
+                y_cursor += panel_gap
+
+        if period_idx > 0:
+            y_cursor += period_sep
+
+    for r in range(n_rows):
+        for c in range(n_cols):
+            pos = axs_2d[r, c].get_position()
+            axs_2d[r, c].set_position([pos.x0, row_y_bottoms[r], pos.width, panel_h])
+
+    fig.canvas.draw()
+
+    # ── One colorbar per period ───────────────────────────────────────────────
+    for period_idx, (period_im, period_diff_ticks) in enumerate(period_ims):
+        first_fig_row = period_idx * n_model_rows
+        pos_l = axs_2d[first_fig_row, 0].get_position()
+        pos_r = axs_2d[first_fig_row, n_cols - 1].get_position()
+
+        cax  = fig.add_axes([pos_l.x0, cbar_ys[period_idx], pos_r.x1 - pos_l.x0, cbar_h])
+        cbar = fig.colorbar(period_im, cax=cax, orientation="horizontal",
+                            extend="both", ticks=period_diff_ticks)
+        cbar.ax.tick_params(labelsize=7, pad=2)
+        for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+            lbl.set_visible(j % 2 == 0)
+        cbar.set_label("Change in frequency [per 6 h]", fontsize=fontsize_cbar, labelpad=4)
+        cbar.ax.xaxis.set_label_position("bottom")
+
+    top_of_panels = row_y_bottoms[0] + panel_h
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {experiment.upper()} "
+        f"{future_period[0]}–{future_period[1]} · {time_selection_label} · per model",
+        fontsize=fontsize_title, fontweight="normal",
+        y=top_of_panels + 0.03,
+    )
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs_2d
+
+
+def _muted_cmap(cmap_in, strength=0.35):
+    """Blend a colormap toward white to create a muted/washed-out version."""
+    rgba = cmap_in(np.linspace(0, 1, 256))
+    rgba[:, :3] = rgba[:, :3] * strength + (1 - strength)
+    return LinearSegmentedColormap.from_list("muted", rgba)
+
+def draw_diff_and_agreement(
+    prepped,
+    figsize=None,
+    ticks_diff=None,          
+    outfile=None,
+    save_fig=False,
+    time_selection=None,
+    zero_threshold=0.0,
+):
+    periods  = _resolve_periods(prepped, time_selection)
+    row_data = [prepped["row_data"][p] for p in periods]
+    time_selection_label = time_selection or prepped["time_selection"]
+    turbulence_index = prepped["turbulence_index"]
+    P                = prepped["P"]
+    experiment       = prepped["experiment"]
+    future_period    = prepped["future_period"]
+
+    n_rows = len(periods)
+
+    if figsize is None:
+        figsize = (10, 4 * n_rows)
+
+    # ── Diff colormap ─────────────────────────────────────────────────────────
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    # ── Agreement colormap ────────────────────────────────────────────────────
+    _anom_muted = _muted_cmap(cmap_dict["anom"], strength=0.6)
+
+    blues = [_anom_muted(x) for x in np.linspace(0.05, 0.42, 5)]  # −7 … −3, dark→light
+    reds  = [_anom_muted(x) for x in np.linspace(0.58, 0.95, 5)]  # +3 … +7, light→dark
+
+    agree_colors = (
+        blues
+        + ["#ffffff", "#ffffff"]       # −2, −1
+        + ["#cecece"]                  #  0 (disagreement)
+        + ["#ffffff", "#ffffff"]       # +1, +2
+        + reds
+    )
+    agree_cmap   = ListedColormap(agree_colors)
+    agree_cmap.set_bad("lightgrey")
+    agree_bounds = np.arange(-7.5, 8.5, 1.0)
+    agree_norm   = BoundaryNorm(agree_bounds, agree_cmap.N)
+    agree_ticks  = np.arange(-7, 8, 1)
+
+
+    unanimous_zero_color = "#c5f6b2bc"
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    proj   = ccrs.PlateCarree(130)
+
+    fig, axs_2d = plt.subplots(
+        nrows=n_rows, ncols=2,
+        figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,
+    )
+
+    row_ims = []   # (diff_im, agree_im, diff_ticks) per row
+
+    for row, (period, (da_hist_mmm, da_future_mmm, da_diff_mmm, agree_mask, da_delta_runs)) in enumerate(
+        zip(periods, row_data)
+    ):
+        # ── Per-period diff ticks ─────────────────────────────────────────────
+        if ticks_diff is None:
+            diff_max = float(np.nanmax(np.abs(da_diff_mmm.values)))
+        elif isinstance(ticks_diff, dict):
+            diff_max = ticks_diff.get(period, float(np.nanmax(np.abs(da_diff_mmm.values))))
+        else:
+            diff_max = float(ticks_diff)
+
+        diff_step  = diff_max / 7
+        diff_ticks = np.arange(-diff_max, diff_max + diff_step * 0.001, diff_step)
+        diff_norm  = BoundaryNorm(diff_ticks, diff_cmap.N + 1, extend="both")
+
+        # ── Net agreement score ───────────────────────────────────────────────
+        da_sign   = xr.where(da_delta_runs >  zero_threshold,  1,
+                    xr.where(da_delta_runs < -zero_threshold, -1, 0))
+        net_score = da_sign.sum("run")
+
+        # coarsen to same resolution as stippling
+        lat_c = 5
+        lon_c = 5
+        net_score = net_score.coarsen(lat=lat_c, lon=lon_c, boundary="pad").mean().round()
+
+        n_pos = (da_delta_runs > zero_threshold).sum("run")
+        n_neg = (da_delta_runs < -zero_threshold).sum("run")
+        unanimous_zero = (net_score == 0) & (n_pos.coarsen(lat=lat_c, lon=lon_c, boundary="pad").mean() == 0) & (n_neg.coarsen(lat=lat_c, lon=lon_c, boundary="pad").mean() == 0)
+        net_score_plot = net_score.where(~unanimous_zero)
+
+
+        diff_im = agree_im = None
+
+        for col in range(2):
+            ax = axs_2d[row, col]
+            ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+            if col == 0:
+                diff_im = ax.pcolormesh(
+                    da_diff_mmm.lon, da_diff_mmm.lat, da_diff_mmm,
+                    cmap=diff_cmap, norm=diff_norm,
+                    transform=ccrs.PlateCarree(), zorder=2,
+                )
+                # model agreement stippling
+                ax.contourf(
+                    agree_mask.lon, agree_mask.lat, agree_mask,
+                    alpha=0, hatches=["", "xxxxxx"],
+                    transform=ccrs.PlateCarree(), zorder=4,
+                )
+                ax.set_title(f"{experiment.upper()} − Historical MMM: {period}",
+                             loc="left", fontsize=fontsize_subtitle,
+                             fontweight="normal", pad=2)
+            else:
+                agree_im = ax.pcolormesh(
+                    net_score_plot.lon, net_score_plot.lat, net_score_plot,
+                    cmap=agree_cmap, norm=agree_norm,
+                    transform=ccrs.PlateCarree(), zorder=2,
+                )
+                uz_data = xr.where(unanimous_zero, 1.0, np.nan)
+                ax.pcolormesh(
+                    uz_data.lon, uz_data.lat, uz_data,
+                    cmap=ListedColormap([unanimous_zero_color]),
+                    vmin=0.5, vmax=1.5,
+                    transform=ccrs.PlateCarree(), zorder=3,
+                )
+                ax.set_title(f"Net model agreement: {period}",
+                             loc="left", fontsize=fontsize_subtitle,
+                             fontweight="normal", pad=2)
+
+            ax.add_geometries(
+                regions_dict["aus_states_territories"]["geometry"],
+                crs=ccrs.PlateCarree(),
+                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
+            )
+            ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+            try:
+                ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+            except Exception:
+                pass
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor("#aaaaaa")
+                spine.set_linewidth(0.8)
+
+            gl = ax.gridlines(
+                crs=ccrs.PlateCarree(),
+                linewidth=0.4, color="black", alpha=0.20,
+                linestyle="--", draw_labels=True,
+            )
+            gl.rotate_labels  = False
+            gl.xlocator       = mticker.FixedLocator(xticks)
+            gl.ylocator       = mticker.FixedLocator(yticks)
+            gl.xformatter     = LONGITUDE_FORMATTER
+            gl.yformatter     = LATITUDE_FORMATTER
+            gl.left_labels    = (col == 0)
+            gl.right_labels   = False
+            gl.top_labels     = False
+            gl.bottom_labels  = (row == n_rows - 1)
+            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        row_ims.append((diff_im, agree_im, diff_ticks))
+
+    # ── Layout ────────────────────────────────────────────────────────────────
+    cbar_h    = 0.007        # fixed colorbar height
+    cbar_gap  = 0.010        # gap between panel bottom and its colorbar
+    title_gap = 0.040        # gap between panel top and the cbar above it (room for title)
+
+    total_fixed = (
+        0.05                                    # bottom margin
+        + 0.08                                  # top margin for suptitle
+        + n_rows * (cbar_h + cbar_gap)          # colorbars + gaps below panels
+        + (n_rows - 1) * title_gap              # title gaps between rows
+    )
+    panel_height = (1.0 - total_fixed) / n_rows
+
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.95, bottom=0.05, wspace=0.18)
+    fig.canvas.draw()
+
+    row_y_bottoms = {}
+    cbar_ys       = {}
+    y_cursor = 0.05
+
+    for r in range(n_rows - 1, -1, -1):
+        cbar_ys[r]       = y_cursor
+        y_cursor        += cbar_h + cbar_gap
+        row_y_bottoms[r] = y_cursor
+        y_cursor        += panel_height
+        if r > 0:
+            y_cursor += title_gap              # space for the title of the row above
+
+    for r in range(n_rows):
+        for c in range(2):
+            pos = axs_2d[r, c].get_position()
+            axs_2d[r, c].set_position([pos.x0, row_y_bottoms[r], pos.width, panel_height])
+
+    fig.canvas.draw()
+
+    # ── Colorbars: diff per row, agreement shared at bottom ───────────────────
+    for r, (diff_im, agree_im, diff_ticks) in enumerate(row_ims):
+        pos_l = axs_2d[r, 0].get_position()
+
+        # diff colorbar under col 0
+        cax_diff = fig.add_axes([pos_l.x0, cbar_ys[r], pos_l.width, cbar_h])
+        cbar_diff = fig.colorbar(diff_im, cax=cax_diff, orientation="horizontal",
+                                 extend="both", ticks=diff_ticks)
+        cbar_diff.ax.tick_params(labelsize=7, pad=2)
+        for j, lbl in enumerate(cbar_diff.ax.xaxis.get_ticklabels()):
+            lbl.set_visible(j % 2 == 0)
+        cbar_diff.set_label("Change in frequency [per 6 h]",
+                            fontsize=fontsize_cbar, labelpad=4)
+        cbar_diff.ax.xaxis.set_label_position("bottom")
+
+    # agreement colorbar under col 1, last row only
+    pos_r = axs_2d[-1, 1].get_position()
+    cax_agree = fig.add_axes([pos_r.x0, cbar_ys[n_rows - 1], pos_r.width, cbar_h])
+    agree_cbar = fig.colorbar(row_ims[-1][1], cax=cax_agree, orientation="horizontal",
+                              extend="neither", ticks=agree_ticks)
+    agree_cbar.ax.tick_params(labelsize=7, pad=2)
+    ticklabels = [str(int(t)) for t in agree_ticks]
+    ticklabels[7] = "0*"
+    agree_cbar.ax.set_xticklabels(ticklabels, fontsize=6)
+    agree_cbar.set_label("Net model agreement [n models]",
+                         fontsize=fontsize_cbar, labelpad=4)
+    agree_cbar.ax.xaxis.set_label_position("bottom")
+
+    from matplotlib.patches import Patch
+    fig.legend(
+        handles=[Patch(facecolor=unanimous_zero_color, label="0* = all models no change")],
+        fontsize=6, framealpha=0.8,
+        bbox_to_anchor=(axs_2d[-1, 1].get_position().x1,
+                        cbar_ys[n_rows - 1] + cbar_h + 0.005),
+        bbox_transform=fig.transFigure,
+        loc="lower right",
+    )
+
+
+
+    top_of_panels = row_y_bottoms[0] + panel_height
+    fig.suptitle(
+        f"{turbulence_index} p99 · {P} hPa · {experiment.upper()} "
+        f"{future_period[0]}–{future_period[1]} · {time_selection_label}",
+        fontsize=fontsize_title, fontweight="normal",
+        y=top_of_panels + 0.03,
+    )
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs_2d
+
+
+
+
+# SYNOPTIC ANALYSIS FUNCTIONS:
+
+BARPA_MODELS = {
+    "ACCESS-CM2":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-CM2/historical/r4i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "ACCESS-ESM1-5": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "CESM2":         "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CESM2/historical/r11i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "CMCC-ESM2":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CMCC-ESM2/historical/r1i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "EC-Earth3":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/EC-Earth3/historical/r1i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "MPI-ESM1-2-HR": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+    "NorESM2-MM":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/NorESM2-MM/historical/r1i1p1f1/BARPA-R/v1-r1/day/psl/latest",
+}
+
+BARRA_ROOT      = "/g/data/cj37/BARRA/BARRA_R/v1/analysis/slv/av_mslp"
+OVERLAP_PERIOD  = slice("1990", "2009")
+from glob import glob as glob_files
+
+
+def _load_barra_mslp(months=None, test_year=None):
+    if months is None:
+        month_strs = [f"{m:02d}" for m in range(1, 13)]
+    else:
+        month_strs = [f"{m:02d}" for m in months]
+
+    years = [test_year] if test_year else range(1990, 2010)
+
+    files = []
+    for year in years:
+        for m in month_strs:
+            files.extend(glob_files(f"{BARRA_ROOT}/{year}/{m}/*.nc"))
+    files.sort()
+
+    if not files:
+        raise FileNotFoundError(f"No BARRA-R files found for years={list(years)}, months={month_strs}")
+
+    ds = xr.open_mfdataset(
+        files,
+        combine="nested",
+        concat_dim="time",
+        decode_timedelta=True,
+        parallel=True,
+    )
+    da = ds["av_mslp"].rename({"latitude": "lat", "longitude": "lon"})
+
+    if da.attrs.get("units", "") == "Pa" or float(da.isel(time=0).mean()) > 10000:
+        da = da / 100.0
+        da.attrs["units"] = "hPa"
+
+    return da
+
+
+def _load_barpa_mmm(months=None, test_year=None):
+    model_means = []
+    for model_name, path in BARPA_MODELS.items():
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"  Warning: no files for {model_name}")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+        da = ds["psl"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+
+        if months is not None:
+            da = da.isel(time=da.time.dt.month.isin(months))
+
+        if da.attrs.get("units", "") == "Pa" or float(da.isel(time=0).mean()) > 10000:
+            da = da / 100.0
+            da.attrs["units"] = "hPa"
+
+        model_means.append(da.mean("time"))
+        print(f"  {model_name} done")
+
+    return xr.concat(model_means, dim="model").mean("model")
+
+
+def prep_mslp_eval_vs_mmmhist(
+    time_selection="May",
+    compute_anomaly=False,
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    """
+    Load and compute BARRA-R and BARPA MMM MSLP fields.
+    Returns a dict with da_eval, da_hist, da_diff ready for plotting.
+
+    test_year: int, e.g. 2000 — loads only that year for a quick check.
+               Caching is disabled when test_year is set.
+    """
+    import os, pickle
+
+    MONTH_MAP = {
+        "January":1, "February":2, "March":3,    "April":4,
+        "May":5,     "June":6,     "July":7,      "August":8,
+        "September":9,"October":10,"November":11, "December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2], "MAM":[3,4,5], "JJA":[6,7,8], "SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10], "NDJFMA":[11,12,1,2,3,4],
+        "annual": list(range(1, 13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    # disable cache for test runs
+    if test_year:
+        use_cache = False
+
+    anom_tag   = "anom" if compute_anomaly else "raw"
+    cache_file = os.path.join(cache_dir, f"mslp_{time_selection}_{anom_tag}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    # ── BARRA-R ───────────────────────────────────────────────────────────────
+    print("Loading BARRA-R...")
+    if compute_anomaly:
+        da_barra_sel = _load_barra_mslp(months=sel_months, test_year=test_year)
+        da_barra_ann = _load_barra_mslp(months=None,       test_year=test_year)
+        da_eval = da_barra_sel.mean("time") - da_barra_ann.mean("time")
+    else:
+        da_eval = _load_barra_mslp(months=sel_months, test_year=test_year).mean("time")
+
+    # ── BARPA MMM ─────────────────────────────────────────────────────────────
+    print("Loading BARPA MMM...")
+    if compute_anomaly:
+        model_anoms = []
+        for model_name, path in BARPA_MODELS.items():
+            files = sorted(glob_files(f"{path}/*.nc"))
+            if not files:
+                print(f"  Warning: no files for {model_name}")
+                continue
+            ds  = xr.open_mfdataset(files, combine="by_coords", parallel=True)
+            da  = ds["psl"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+            if float(da.isel(time=0).mean()) > 10000:
+                da = da / 100.0
+            da_sel = da.isel(time=da.time.dt.month.isin(sel_months)).mean("time")
+            da_ann = da.mean("time")
+            model_anoms.append(da_sel - da_ann)
+            print(f"  {model_name} done")
+        da_hist = xr.concat(model_anoms, dim="model").mean("model")
+    else:
+        da_hist = _load_barpa_mmm(months=sel_months, test_year=test_year)
+
+    
+    da_hist = da_hist.interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+    da_diff = da_hist - da_eval
+
+    from dask.diagnostics import ProgressBar
+
+    print("Computing arrays...")
+    with ProgressBar():
+        da_eval = da_eval.compute()
+        da_hist = da_hist.compute()
+        da_diff = da_diff.compute()
+
+
+
+    result = {
+        "da_eval":         da_eval,
+        "da_hist":         da_hist,
+        "da_diff":         da_diff,
+        "time_selection":  time_selection,
+        "compute_anomaly": compute_anomaly,
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+def _muted_cmap(cmap_in, strength=0.35):
+    """Blend a colormap toward white to create a muted/washed-out version."""
+    rgba = cmap_in(np.linspace(0, 1, 256))
+    rgba[:, :3] = rgba[:, :3] * strength + (1 - strength)
+    return LinearSegmentedColormap.from_list("muted", rgba)
+
+
+def plot_mslp_eval_vs_mmmhist_diff(
+    data,
+    figsize=None,
+    ticks_abs=None,
+    ticks_diff=None,
+    contour_interval=4,    # hPa interval for labeled contour lines on base panels
+    outfile=None,
+    save_fig=False,
+    single_label = False,
+    year = '',
+    show_contours = True
+):
+    """
+    Plot BARRA-R | BARPA MMM | MMM - BARRA-R for MSLP.
+    Left/centre: muted filled contours + labeled contour lines.
+    Right: full diverging pcolormesh.
+    Expects the dict returned by prep_mslp_eval_vs_mmmhist.
+    """
+    da_eval         = data["da_eval"]
+    da_hist         = data["da_hist"]
+    da_diff         = data["da_diff"]
+    time_selection  = data["time_selection"]
+    compute_anomaly = data["compute_anomaly"]
+    test_year       = data.get("test_year")
+    var_name = data.get("var_name", "MSLP")
+    units    = data.get("units",    "hPa")
+
+
+    # ── Colormaps ─────────────────────────────────────────────────────────────
+    base_cmap_full = plt.get_cmap("RdBu_r").copy()
+    base_cmap_full.set_bad("lightgrey")
+    base_cmap_muted = _muted_cmap(base_cmap_full, strength=0.35)
+    base_cmap_muted.set_bad("lightgrey")
+
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    # ── Ticks ─────────────────────────────────────────────────────────────────
+    def _sym_ticks(maxval, n=14):
+        step = maxval / (n // 2)
+        return np.arange(-maxval, maxval + step * 0.001, step)
+
+    vmin = float(np.nanmin([da_eval.min(), da_hist.min()]))
+    vmax = float(np.nanmax([da_eval.max(), da_hist.max()]))
+    if ticks_abs:
+        vmin, vmax = ticks_abs
+    base_ticks = np.linspace(vmin, vmax, 15)
+
+    diff_max   = ticks_diff if ticks_diff else float(np.nanmax(np.abs(da_diff.values)))
+    diff_ticks = _sym_ticks(diff_max)
+
+    base_norm = BoundaryNorm(base_ticks, base_cmap_muted.N + 1, extend="both")
+    diff_norm = BoundaryNorm(diff_ticks, diff_cmap.N + 1,       extend="both")
+
+    # Labeled contour line levels — rounded to nearest contour_interval
+    c_min = np.ceil(vmin  / contour_interval) * contour_interval
+    c_max = np.floor(vmax / contour_interval) * contour_interval
+    contour_levels = np.arange(c_min, c_max + 0.1, contour_interval)
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    proj = ccrs.PlateCarree(130)
+    if figsize is None:
+        figsize = (15, 4)
+
+    fig, axs = plt.subplots(
+        1, 3, figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+    )
+
+    anom_str     = " anomaly" if compute_anomaly else ""
+    panel_data   = [da_eval, da_hist, da_diff]
+    panel_titles = [
+        f"BARRA-R: {time_selection}{anom_str}",
+        f"BARPA MMM: {time_selection}{anom_str}",
+        f"MMM − BARRA-R: {time_selection}",
+    ]
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+
+    base_im = diff_im = None
+
+    for col, (ax, da, title) in enumerate(zip(axs, panel_data, panel_titles)):
+        ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+        if col < 2:
+            # Muted filled contours
+            im = ax.contourf(
+                da.lon, da.lat, da,
+                levels=base_ticks,
+                cmap=base_cmap_muted,
+                norm=base_norm,
+                transform=ccrs.PlateCarree(),
+                zorder=2,
+                extend="both",
+            )
+            base_im = im
+            
+            if show_contours:
+                # Labeled contour lines on top
+                cs = ax.contour(
+                    da.lon, da.lat, da,
+                    levels=contour_levels,
+                    colors="black",
+                    linewidths=0.5,
+                    transform=ccrs.PlateCarree(),
+                    zorder=3,
+                )
+                ax.clabel(cs, fmt="%g", fontsize=6, inline=True)
+
+        else:
+            # Diff panel: full diverging pcolormesh
+            im = ax.pcolormesh(
+                da.lon, da.lat, da,
+                cmap=diff_cmap, norm=diff_norm,
+                transform=ccrs.PlateCarree(), zorder=2,
+            )
+            diff_im = im
+
+        ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+        try:
+            ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+        except Exception:
+            pass
+
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("#aaaaaa")
+            spine.set_linewidth(0.8)
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            linewidth=0.4, color="black", alpha=0.20,
+            linestyle="--", draw_labels=True,
+        )
+        gl.rotate_labels  = False
+        gl.xlocator       = mticker.FixedLocator(xticks)
+        gl.ylocator       = mticker.FixedLocator(yticks)
+        gl.xformatter     = LONGITUDE_FORMATTER
+        gl.yformatter     = LATITUDE_FORMATTER
+        gl.left_labels    = (col == 0)
+        gl.right_labels   = False
+        gl.top_labels     = False
+        gl.bottom_labels  = True
+        gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+        gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
+                     fontweight="normal", pad=2)
+
+    # ── Colorbars ─────────────────────────────────────────────────────────────
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.92, bottom=0.18, wspace=0.18)
+    fig.canvas.draw()
+
+    def _add_cbar(im, ticks, ax_l, ax_r, label):
+        pos_l = ax_l.get_position()
+        pos_r = ax_r.get_position()
+        cax   = fig.add_axes([pos_l.x0, 0.06, pos_r.x1 - pos_l.x0, 0.025])
+        cbar  = fig.colorbar(im, cax=cax, orientation="horizontal",
+                             extend="both", ticks=ticks)
+        cbar.ax.tick_params(labelsize=7, pad=2)
+        for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+            lbl.set_visible(j % 2 == 0)
+        cbar.set_label(label, fontsize=fontsize_cbar, labelpad=4)
+        cbar.ax.xaxis.set_label_position("bottom")
+
+    _add_cbar(base_im, base_ticks, axs[0], axs[1], f"{var_name}{anom_str} [{units}]")
+    _add_cbar(diff_im, diff_ticks, axs[2], axs[2], f"Difference [{units}]")
+
+    if single_label:
+        period_str = year
+    else:
+        period_str = "1990-2009"
+
+    fig.suptitle(
+        f"{var_name}{anom_str} | {time_selection} | {period_str}",
+        fontsize=fontsize_title, fontweight="normal", y=0.97,
+    )
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved: {outfile}")
+
+    return fig, axs
+
+
+    ## Single model evaluation:
+
+def prep_mslp_per_model(
+    time_selection="May",
+    compute_anomaly=False,
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    """
+    Like prep_mslp_eval_vs_mmmhist but returns one diff per model
+    instead of the MMM. Returns dict with da_eval and da_diffs.
+    """
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    anom_tag   = "anom" if compute_anomaly else "raw"
+    cache_file = os.path.join(cache_dir, f"mslp_permodel_{time_selection}_{anom_tag}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    # ── BARRA-R ───────────────────────────────────────────────────────────────
+    print("Loading BARRA-R...")
+    if compute_anomaly:
+        da_barra_sel = _load_barra_mslp(months=sel_months, test_year=test_year)
+        da_barra_ann = _load_barra_mslp(months=None,       test_year=test_year)
+        da_eval = (da_barra_sel.mean("time") - da_barra_ann.mean("time")).compute()
+    else:
+        with ProgressBar():
+            da_eval = _load_barra_mslp(months=sel_months, test_year=test_year).mean("time").compute()
+
+    # ── Per-model diffs ───────────────────────────────────────────────────────
+    da_diffs = {}
+    for model_name, path in BARPA_MODELS.items():
+        print(f"  Loading {model_name}...")
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"    Warning: no files found")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds["psl"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+        da = da.isel(time=da.time.dt.month.isin(sel_months))
+
+        if da.attrs.get("units","") == "Pa" or float(da.isel(time=0).mean()) > 10000:
+            da = da / 100.0
+
+        if compute_anomaly:
+            da_ann = ds["psl"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+            if float(da_ann.isel(time=0).mean()) > 10000:
+                da_ann = da_ann / 100.0
+            da_model = da.mean("time") - da_ann.mean("time")
+        else:
+            da_model = da.mean("time")
+
+        da_model = da_model.interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+        with ProgressBar():
+            da_diffs[model_name] = (da_model - da_eval).compute()
+        ds.close()
+        print(f"    done")
+
+    result = {
+        "da_eval":         da_eval,
+        "da_diffs":        da_diffs,       # dict: model_name → diff DataArray
+        "time_selection":  time_selection,
+        "compute_anomaly": compute_anomaly,
+        "test_year":       test_year,
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+def plot_mslp_per_model_diff(
+    data,
+    figsize=None,
+    ticks_diff=None,
+    outfile=None,
+    save_fig=False,
+):
+    """
+    7-panel plot of MSLP difference (model − BARRA-R), one panel per BARPA model.
+    Layout: 4×2 grid, last cell empty.
+    """
+    da_diffs       = data["da_diffs"]
+    time_selection = data["time_selection"]
+    compute_anomaly = data["compute_anomaly"]
+    test_year      = data.get("test_year")
+    var_name = data.get("var_name", "MSLP")
+    units    = data.get("units",    "hPa")
+
+    model_names = list(da_diffs.keys())   # 7 models
+    n_models    = len(model_names)
+    ncols, nrows = 2, 4                   # 4×2 = 8 slots, last empty
+
+    # ── Colormap ──────────────────────────────────────────────────────────────
+    diff_cmap = cmap_dict["anom"].copy()
+    diff_cmap.set_bad("lightgrey")
+
+    # ── Ticks ─────────────────────────────────────────────────────────────────
+    def _sym_ticks(maxval, n=14):
+        step = maxval / (n // 2)
+        return np.arange(-maxval, maxval + step * 0.001, step)
+
+    if ticks_diff is None:
+        diff_max = float(np.nanmax([
+            np.nanmax(np.abs(da_diffs[m].values)) for m in model_names
+        ]))
+    else:
+        diff_max = float(ticks_diff)
+
+    diff_ticks = _sym_ticks(diff_max)
+    diff_norm  = BoundaryNorm(diff_ticks, diff_cmap.N + 1, extend="both")
+
+    # ── Figure ────────────────────────────────────────────────────────────────
+    proj = ccrs.PlateCarree(130)
+    if figsize is None:
+        figsize = (12, 4 * nrows)
+
+    fig, axs_2d = plt.subplots(
+        nrows, ncols, figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+        squeeze=False,
+    )
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+
+    last_im = None
+
+    for idx, model_name in enumerate(model_names):
+        row, col = divmod(idx, ncols)
+        ax = axs_2d[row, col]
+        da = da_diffs[model_name]
+
+        ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+        im = ax.pcolormesh(
+            da.lon, da.lat, da,
+            cmap=diff_cmap, norm=diff_norm,
+            transform=ccrs.PlateCarree(), zorder=2,
+        )
+        last_im = im
+
+        ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+        try:
+            ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+        except Exception:
+            pass
+
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("#aaaaaa")
+            spine.set_linewidth(0.8)
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            linewidth=0.4, color="black", alpha=0.20,
+            linestyle="--", draw_labels=True,
+        )
+        gl.rotate_labels  = False
+        gl.xlocator       = mticker.FixedLocator(xticks)
+        gl.ylocator       = mticker.FixedLocator(yticks)
+        gl.xformatter     = LONGITUDE_FORMATTER
+        gl.yformatter     = LATITUDE_FORMATTER
+        gl.left_labels    = (col == 0)
+        gl.right_labels   = False
+        gl.top_labels     = False
+        gl.bottom_labels  = (row == nrows - 1)
+        gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+        gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        ax.set_title(f"{model_name} − BARRA-R: {time_selection}",
+                     loc="left", fontsize=fontsize_subtitle,
+                     fontweight="normal", pad=2)
+
+    # Hide the unused 8th panel
+    axs_2d[-1, -1].set_visible(False)
+
+    # ── Colorbar ──────────────────────────────────────────────────────────────
+    fig.subplots_adjust(left=0.06, right=0.97, top=0.96, bottom=0.06, wspace=0.15, hspace=0.15)
+    fig.canvas.draw()
+
+    # Span full width of the bottom-left panel (last visible panel)
+    pos_last = axs_2d[nrows - 1, 0].get_position()
+    pos_br   = axs_2d[nrows - 2, ncols - 1].get_position()  # last row with content on right
+
+    cax = fig.add_axes([pos_last.x0, pos_last.y0 - 0.03, pos_br.x1 - pos_last.x0, 0.015])
+    cbar = fig.colorbar(last_im, cax=cax, orientation="horizontal",
+                        extend="both", ticks=diff_ticks)
+    cbar.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar.set_label(f"Difference [{units}]", fontsize=fontsize_cbar, labelpad=4)
+    cbar.ax.xaxis.set_label_position("bottom")
+
+    anom_str   = " anomaly" if compute_anomaly else ""
+    period_str = str(test_year) if test_year else "1990–2009"
+    fig.suptitle(f"{var_name}{anom_str} per model − BARRA-R · {time_selection} · {period_str}",
+             fontsize=fontsize_title, fontweight="normal", y=0.99)
+
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved: {outfile}")
+
+    return fig, axs_2d
+
+
+# 500hPa GEOPOTENTIAL HEIGHT
+
+BARRA_Z500_ROOT = "/g/data/cj37/BARRA/BARRA_R/v1/analysis/prs/geop_ht"
+
+BARPA_ZG500_MODELS = {
+    "ACCESS-CM2":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-CM2/historical/r4i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "ACCESS-ESM1-5": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "CESM2":         "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CESM2/historical/r11i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "CMCC-ESM2":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CMCC-ESM2/historical/r1i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "EC-Earth3":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/EC-Earth3/historical/r1i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "MPI-ESM1-2-HR": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+    "NorESM2-MM":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/NorESM2-MM/historical/r1i1p1f1/BARPA-R/v1-r1/day/zg500/latest",
+}
+
+
+def _load_barra_z500(months=None, test_year=None):
+    if months is None:
+        month_strs = [f"{m:02d}" for m in range(1, 13)]
+    else:
+        month_strs = [f"{m:02d}" for m in months]
+
+    years = [test_year] if test_year else range(1990, 2010)
+
+    files = []
+    for year in years:
+        for m in month_strs:
+            files.extend(glob_files(f"{BARRA_Z500_ROOT}/{year}/{m}/*.nc"))
+    files.sort()
+
+    if not files:
+        raise FileNotFoundError(f"No BARRA-R Z500 files found")
+
+    ds = xr.open_mfdataset(
+        files, combine="nested", concat_dim="time",
+        decode_timedelta=True, parallel=False,
+    )
+    da = (
+        ds["geop_ht"]
+        .sel(pressure=500, method="nearest")
+        .rename({"latitude": "lat", "longitude": "lon"})
+    )
+    return da   # units: metres
+
+
+def _load_barpa_z500_mmm(months=None, test_year=None, barpa_var="zg500"):
+    model_means = []
+    for model_name, path in BARPA_ZG500_MODELS.items():
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"  Warning: no files for {model_name}")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds[barpa_var].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+
+        if months is not None:
+            da = da.isel(time=da.time.dt.month.isin(months))
+
+        model_means.append(da.mean("time").compute())
+        ds.close()
+        print(f"  {model_name} done")
+
+    return xr.concat(model_means, dim="model").mean("model")
+
+
+def prep_z500_eval_vs_mmmhist(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+    barpa_var="zg500",
+):
+    """
+    Load and compute BARRA-R and BARPA MMM Z500 fields.
+    Returns dict with da_eval, da_hist, da_diff ready for plotting.
+    """
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"z500_mmm_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R Z500...")
+    with ProgressBar():
+        da_eval = _load_barra_z500(months=sel_months, test_year=test_year).mean("time").compute()
+
+    print("Loading BARPA MMM Z500...")
+    da_hist = _load_barpa_z500_mmm(months=sel_months, test_year=test_year, barpa_var=barpa_var)
+    da_hist = da_hist.interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+    with ProgressBar():
+        da_hist = da_hist.compute()
+
+    da_diff = da_hist - da_eval
+
+    result = {
+        "da_eval":        da_eval,
+        "da_hist":        da_hist,
+        "da_diff":        da_diff,
+        "time_selection": time_selection,
+        "compute_anomaly": False,
+        "test_year":      test_year,
+        "var_name":       "Z500",
+        "units":          "m",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+def prep_z500_per_model(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+    barpa_var="zg500",
+):
+    """
+    Load BARRA-R and each BARPA model Z500 separately.
+    Returns dict with da_eval and da_diffs (per-model).
+    """
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"z500_permodel_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R Z500...")
+    with ProgressBar():
+        da_eval = _load_barra_z500(months=sel_months, test_year=test_year).mean("time").compute()
+
+    da_diffs = {}
+    for model_name, path in BARPA_ZG500_MODELS.items():
+        print(f"  Loading {model_name}...")
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"    Warning: no files found")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds[barpa_var].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+        da = da.isel(time=da.time.dt.month.isin(sel_months))
+        da_model = da.mean("time").interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+        with ProgressBar():
+            da_diffs[model_name] = (da_model - da_eval).compute()
+        ds.close()
+        print(f"    done")
+
+    result = {
+        "da_eval":        da_eval,
+        "da_diffs":       da_diffs,
+        "time_selection": time_selection,
+        "compute_anomaly": False,
+        "test_year":      test_year,
+        "var_name":       "Z500",
+        "units":          "m",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+
+# Surface temperature:
+
+BARRA_TEMP_ROOT = "/g/data/cj37/BARRA/BARRA_R/v1/analysis/slv/av_temp_scrn"
+
+BARPA_TAS_MODELS = {
+    "ACCESS-CM2":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-CM2/historical/r4i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "ACCESS-ESM1-5": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "CESM2":         "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CESM2/historical/r11i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "CMCC-ESM2":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CMCC-ESM2/historical/r1i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "EC-Earth3":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/EC-Earth3/historical/r1i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "MPI-ESM1-2-HR": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+    "NorESM2-MM":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/NorESM2-MM/historical/r1i1p1f1/BARPA-R/v1-r1/day/tas/latest",
+}
+
+
+def _to_celsius(da):
+    """Convert to Celsius if in Kelvin."""
+    if float(da.isel(time=0).mean()) > 200:
+        da = da - 273.15
+        da.attrs["units"] = "°C"
+    return da
+
+
+def _load_barra_temp(months=None, test_year=None):
+    if months is None:
+        month_strs = [f"{m:02d}" for m in range(1, 13)]
+    else:
+        month_strs = [f"{m:02d}" for m in months]
+
+    years = [test_year] if test_year else range(1990, 2010)
+
+    files = []
+    for year in years:
+        for m in month_strs:
+            files.extend(glob_files(f"{BARRA_TEMP_ROOT}/{year}/{m}/*.nc"))
+    files.sort()
+
+    if not files:
+        raise FileNotFoundError("No BARRA-R temperature files found")
+
+    ds = xr.open_mfdataset(
+        files, combine="nested", concat_dim="time",
+        decode_timedelta=True, parallel=False,
+    )
+    da = (
+        ds["av_temp_scrn"]
+        .rename({"latitude": "lat", "longitude": "lon"})
+    )
+    return _to_celsius(da)
+
+
+def _load_barpa_tas_mmm(months=None, test_year=None):
+    model_means = []
+    for model_name, path in BARPA_TAS_MODELS.items():
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"  Warning: no files for {model_name}")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds["tas"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+
+        if months is not None:
+            da = da.isel(time=da.time.dt.month.isin(months))
+
+        da = _to_celsius(da)
+        model_means.append(da.mean("time").compute())
+        ds.close()
+        print(f"  {model_name} done")
+
+    return xr.concat(model_means, dim="model").mean("model")
+
+
+def prep_temp_eval_vs_mmmhist(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"temp_mmm_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R temperature...")
+    with ProgressBar():
+        da_eval = _load_barra_temp(months=sel_months, test_year=test_year).mean("time").compute()
+
+    print("Loading BARPA MMM temperature...")
+    da_hist = _load_barpa_tas_mmm(months=sel_months, test_year=test_year)
+    da_hist = da_hist.interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+    with ProgressBar():
+        da_hist = da_hist.compute()
+
+    da_diff = da_hist - da_eval
+
+    result = {
+        "da_eval":         da_eval,
+        "da_hist":         da_hist,
+        "da_diff":         da_diff,
+        "time_selection":  time_selection,
+        "compute_anomaly": False,
+        "test_year":       test_year,
+        "var_name":        "T2m",
+        "units":           "°C",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+def prep_temp_per_model(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"temp_permodel_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R temperature...")
+    with ProgressBar():
+        da_eval = _load_barra_temp(months=sel_months, test_year=test_year).mean("time").compute()
+
+    da_diffs = {}
+    for model_name, path in BARPA_TAS_MODELS.items():
+        print(f"  Loading {model_name}...")
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"    Warning: no files found")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds["tas"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+        da = da.isel(time=da.time.dt.month.isin(sel_months))
+        da = _to_celsius(da)
+
+        da_model = da.mean("time").interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+        with ProgressBar():
+            da_diffs[model_name] = (da_model - da_eval).compute()
+        ds.close()
+        print(f"    done")
+
+    result = {
+        "da_eval":         da_eval,
+        "da_diffs":        da_diffs,
+        "time_selection":  time_selection,
+        "compute_anomaly": False,
+        "test_year":       test_year,
+        "var_name":        "T2m",
+        "units":           "°C",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+BARRA_SFC_TEMP_ROOT = "/g/data/cj37/BARRA/BARRA_R/v1/analysis/spec/sfc_temp"
+
+BARPA_TS_MODELS = {
+    "ACCESS-CM2":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-CM2/historical/r4i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "ACCESS-ESM1-5": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "CESM2":         "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CESM2/historical/r11i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "CMCC-ESM2":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/CMCC-ESM2/historical/r1i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "EC-Earth3":     "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/EC-Earth3/historical/r1i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "MPI-ESM1-2-HR": "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+    "NorESM2-MM":    "/g/data/py18/BARPA/output-CMIP6/DD/AUS-15/BOM/NorESM2-MM/historical/r1i1p1f1/BARPA-R/v1-r1/day/ts/latest",
+}
+
+
+def _load_barra_sfc_temp(months=None, test_year=None):
+    if months is None:
+        month_strs = [f"{m:02d}" for m in range(1, 13)]
+    else:
+        month_strs = [f"{m:02d}" for m in months]
+
+    years = [test_year] if test_year else range(1990, 2010)
+
+    files = []
+    for year in years:
+        for m in month_strs:
+            files.extend(glob_files(f"{BARRA_SFC_TEMP_ROOT}/{year}/{m}/*.nc"))
+    files.sort()
+
+    if not files:
+        raise FileNotFoundError("No BARRA-R sfc_temp files found")
+
+    ds = xr.open_mfdataset(
+        files, combine="nested", concat_dim="time",
+        decode_timedelta=True, parallel=False,
+    )
+    # update variable name if ncdump shows something different
+    da = (
+        ds["sfc_temp"]
+        .rename({"latitude": "lat", "longitude": "lon"})
+    )
+    return _to_celsius(da)
+
+
+def _load_barpa_ts_mmm(months=None, test_year=None):
+    model_means = []
+    for model_name, path in BARPA_TS_MODELS.items():
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"  Warning: no files for {model_name}")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds["ts"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+
+        if months is not None:
+            da = da.isel(time=da.time.dt.month.isin(months))
+
+        da = _to_celsius(da)
+        model_means.append(da.mean("time").compute())
+        ds.close()
+        print(f"  {model_name} done")
+
+    return xr.concat(model_means, dim="model").mean("model")
+
+
+def prep_sst_eval_vs_mmmhist(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"sst_mmm_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R surface temperature...")
+    with ProgressBar():
+        da_eval = _load_barra_sfc_temp(months=sel_months, test_year=test_year).mean("time").compute()
+
+    print("Loading BARPA MMM surface temperature...")
+    da_hist = _load_barpa_ts_mmm(months=sel_months, test_year=test_year)
+    da_hist = da_hist.interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+    with ProgressBar():
+        da_hist = da_hist.compute()
+
+    da_diff = da_hist - da_eval
+
+    result = {
+        "da_eval":         da_eval,
+        "da_hist":         da_hist,
+        "da_diff":         da_diff,
+        "time_selection":  time_selection,
+        "compute_anomaly": False,
+        "test_year":       test_year,
+        "var_name":        "Sfc Temp",
+        "units":           "°C",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+def prep_sst_per_model(
+    time_selection="May",
+    use_cache=True,
+    cache_dir="/scratch/v46/ls7238/cache",
+    test_year=None,
+):
+    import os, pickle
+    from dask.diagnostics import ProgressBar
+
+    MONTH_MAP = {
+        "January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+        "July":7,"August":8,"September":9,"October":10,"November":11,"December":12,
+    }
+    SEASON_MAP = {
+        "DJF":[12,1,2],"MAM":[3,4,5],"JJA":[6,7,8],"SON":[9,10,11],
+        "MJJASO":[5,6,7,8,9,10],"NDJFMA":[11,12,1,2,3,4],
+        "annual":list(range(1,13)),
+    }
+
+    if isinstance(time_selection, str) and time_selection in MONTH_MAP:
+        sel_months = [MONTH_MAP[time_selection]]
+    elif isinstance(time_selection, str) and time_selection in SEASON_MAP:
+        sel_months = SEASON_MAP[time_selection]
+    elif isinstance(time_selection, list):
+        sel_months = time_selection
+    else:
+        raise ValueError(f"Unrecognised time_selection: {time_selection!r}")
+
+    if test_year:
+        use_cache = False
+
+    cache_file = os.path.join(cache_dir, f"sst_permodel_{time_selection}.pkl")
+
+    if use_cache and os.path.exists(cache_file):
+        print(f"Loading from cache: {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    print("Loading BARRA-R surface temperature...")
+    with ProgressBar():
+        da_eval = _load_barra_sfc_temp(months=sel_months, test_year=test_year).mean("time").compute()
+
+    da_diffs = {}
+    for model_name, path in BARPA_TS_MODELS.items():
+        print(f"  Loading {model_name}...")
+        files = sorted(glob_files(f"{path}/*.nc"))
+        if not files:
+            print(f"    Warning: no files found")
+            continue
+
+        ds = xr.open_mfdataset(files, combine="by_coords", parallel=False)
+        da = ds["ts"].sel(time=str(test_year) if test_year else OVERLAP_PERIOD)
+        da = da.isel(time=da.time.dt.month.isin(sel_months))
+        da = _to_celsius(da)
+
+        da_model = da.mean("time").interp(lat=da_eval.lat, lon=da_eval.lon, method="linear")
+
+        with ProgressBar():
+            da_diffs[model_name] = (da_model - da_eval).compute()
+        ds.close()
+        print(f"    done")
+
+    result = {
+        "da_eval":         da_eval,
+        "da_diffs":        da_diffs,
+        "time_selection":  time_selection,
+        "compute_anomaly": False,
+        "test_year":       test_year,
+        "var_name":        "Sfc Temp",
+        "units":           "°C",
+    }
+
+    if use_cache:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            pickle.dump(result, f)
+        print(f"Cached to: {cache_file}")
+
+    return result
+
+
+
 
 
 

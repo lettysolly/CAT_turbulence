@@ -82,7 +82,7 @@ def potential_temperature(ds, t = "t", p=P, P0=P0):
     p is pressure level you are interested in
     P0 is the reference pressure usually 1000hPa
     """
-    T = ds[t]
+    T = ds[t].sel(pressure = p)
     return T*(P0/p)**(0.2857)
 theta = potential_temperature
     
@@ -169,6 +169,12 @@ def turbulence_index_3(ds, u="u", v="v", z="z", p0=p0, p1=p1, lon="lon", lat="la
 TI3 = turbulence_index_3
 ellrod3 = turbulence_index_3
 
+def absolute_vorticity(ds, u="u", v="v", lon="lon", lat="lat", p=P, x=step_size, y=step_size):
+    """Absolute vorticity = relative vorticity (zeta) + Coriolis parameter (f)"""
+    return zeta(ds, u=u, v=v, lon=lon, lat=lat, p=p, x=x, y=y) + coriolis_freq(ds, lat=lat)
+AbsVort = absolute_vorticity
+
+
 
 # calculate all turbulence indices   
 def calc_turbulence_indices(
@@ -213,6 +219,8 @@ def calc_turbulence_indices(
         "TI1": (TI1, dict(u=u, v=v, z=z, p0=p0, p1=p1, lon=lon, lat=lat, p=p, x=x, y=y)),
         "TI2": (TI2, dict(u=u, v=v, z=z, p0=p0, p1=p1, lon=lon, lat=lat, p=p, x=x, y=y)),
         "TI3": (TI3, dict(u=u, v=v, z=z, p0=p0, p1=p1, lon=lon, lat=lat, p=p, x=x, y=y)),
+        "AbsVort": (AbsVort, dict(u=u, v=v, lon=lon, lat=lat, p=p, x=x, y=y)),
+
     }
 
     # Apply requested indices
