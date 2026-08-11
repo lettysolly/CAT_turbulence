@@ -2838,7 +2838,7 @@ lon_slice = slice(90,195)
 baseline_time_range = np.arange(1990,2009+1)
 baseline_time_slice = slice("1990", "2009")
 
-ssp_colors = {"evaluation":"k",
+ssp_colors = {"evaluation":"brown",
               "historical":"grey",
               "ssp585":(149/255,27/255,30/255),
               "ssp370":(231/255,29/255,37/255),
@@ -3237,7 +3237,7 @@ def evaluate_model_map_anom(ds_baseline_mapped, turbulence_index, P, ticks_max=0
     print(f"Made {outfile}")
     return
 
-def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None, save_fig = False, outfile = None):
+def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, lat_box ='', ymax=None, save_fig = False, outfile = None):
     
     if outfile is None:
         outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_annual_rolling{window_size}y.png"
@@ -3254,11 +3254,34 @@ def plot_timeseries_annual(ds_ts, turbulence_index, P, window_size, ymax=None, s
                     significance_tested=False, 
                     pi=100,
                     outfile=outfile,
-                    save_fig = save_fig,
+                    save_fig = False,
                    )
+
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.1f}"))
+    ax.set_ylabel("Frequency p99 [% per 6h]")
+
+    rename = {
+        "evaluation": "Reanalysis",
+        "historical": "Historical",
+        "ssp126": "SSP1-2.6",
+        "ssp370": "SSP3-7.0",
+        "ssp585": "SSP5-8.5",
+    }
+    legend = ax.get_legend()
+    if legend is not None:
+        for text in legend.get_texts():
+            text.set_text(rename.get(text.get_text(), text.get_text()))
+
+    ax.set_title(f"{turbulence_index} {P}hPa, {lat_box} - Frequency above p99")
+
+    if save_fig:
+        plt.savefig(outfile, bbox_inches="tight")
+        print(f"Saved {outfile}")
+
     return
     
-def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax=None, save_fig = False, outfile = None):
+def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, lat_box = '', ymax=None, save_fig = False, outfile = None):
     # cool season v warm season
     if outfile is None:
         outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_6Mseason_rolling{window_size}y.png"
@@ -3289,7 +3312,7 @@ def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax
                         save_fig = save_fig)
     
     # Manually set figure and axis lables
-    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
+    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean - {lat_box}")
     fig.subplots_adjust(hspace=0.25)
     for ax in axs.flat:
         ax.set_ylabel("")
@@ -3297,19 +3320,21 @@ def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax
         ax.grid(alpha=0.3)
         ax.tick_params(axis="both", labelsize=10)
         ax.tick_params(axis="y", pad=2)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.1f}"))
+
     axs[0].set_title("Cool season (MJJASO)")
     axs[1].set_title("Warm season (NDJFMA)")
-    fig.supylabel("Frequency p99 [per 6h]")
+    fig.supylabel("Frequency p99 (% per 6h)")
     fig.supxlabel("Year")
 
     # Legend below figure:
     handles, labels = axs[0].get_legend_handles_labels()
     legend_handles = [
-        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="black", lw=1.5, label="Reanalysis"),
         Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
-        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
-        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
-        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP1-2.6"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP3-7.0"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP5-8.5"),]
     fig.legend(
         handles=legend_handles,
         loc="lower center",
@@ -3326,7 +3351,7 @@ def plot_timeseries_coolwarmseason(ds_ts, turbulence_index, P, window_size, ymax
     return
 
 
-def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None, save_fig = False, outfile = None):
+def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, lat_box = '', ymax=None, save_fig = False, outfile = None):
     if outfile is None:
         outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/Timeseries_{turbulence_index}_{P}hPa_Frequency_of_exceeding_p99_over_time_season_rolling{window_size}y.png"
 
@@ -3364,24 +3389,25 @@ def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None, s
                                )
         
     # Manually set figure and axis titles:
-    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
+    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean - {lat_box}")
     for ax in axs.flat:
         ax.set_ylabel("")
         ax.set_xlabel("")
         ax.grid(alpha=0.3)
         ax.tick_params(axis="both", labelsize=10)
         ax.tick_params(axis="y", pad=2)
-    fig.supylabel("Frequency p99 [per 6h]")
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.1f}"))
+    fig.supylabel("Frequency p99 [% per 6h]")
     fig.supxlabel("Year")
     
     # Legend below figure:
     handles, labels = axs[0, 0].get_legend_handles_labels()
     legend_handles = [
-        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="black", lw=1.5, label="Reanalysis"),
         Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
-        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
-        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
-        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP1-2.6"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP3-7.0"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP5-8.5"),]
     fig.legend(
         handles=legend_handles,
         loc="lower center",
@@ -3396,7 +3422,7 @@ def plot_timeseries_season(ds_ts, turbulence_index, P, window_size, ymax=None, s
     return
 
     
-def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None, save_fig = False, outfile = None):
+def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, lat_box = '', ymax=None, save_fig = False, outfile = None):
     """for month"""
     if outfile is None:
         outfile = f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/\
@@ -3434,7 +3460,7 @@ def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None, sa
                        legend=False,
                        save_fig = save_fig)
     
-    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean")
+    plt.suptitle(f"{turbulence_index} {P}hPa {window_size}-year rolling mean - {lat_box}")
     # remove per-axis labels
     for ax in axs.flat:
         ax.set_ylabel("")
@@ -3444,16 +3470,17 @@ def plot_timeseries_month(ds_ts, turbulence_index, P, window_size, ymax=None, sa
         ax.grid(alpha=0.3)
         ax.tick_params(axis="both", labelsize=9)
         ax.tick_params(axis="y", pad=2)
-    fig.supylabel("Frequency p99 [per 6h]")
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.1f}"))
+    fig.supylabel("Frequency p99 [% per 6h]")
     fig.supxlabel("Year")
 
     handles, labels = axs[0, 0].get_legend_handles_labels()
     legend_handles = [
-        Line2D([0], [0], color="black", lw=1.5, label="Evaluation"),
+        Line2D([0], [0], color="black", lw=1.5, label="Reanalysis"),
         Line2D([0], [0], color="grey", lw=1.5, label="Historical"),
-        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP126"),
-        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP370"),
-        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP585"),]
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP1-2.6"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP3-7.0"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP5-8.5"),]
 
     fig.legend(
         handles=legend_handles,
@@ -3812,6 +3839,7 @@ def prep_futures_1plus3(path_stem,
                         all_agree_except=1,
                         significance_tested=False,
                         baseline_time_slice=baseline_time_slice,
+                        pct_change = False,
                         ):
 
     if significance_tested:
@@ -3877,8 +3905,13 @@ def prep_futures_1plus3(path_stem,
 
             run_deltas = []
             for (start, end) in time_slices[1:]:
-                delta = (ds[turbulence_index].sel(time=slice(start, end)).mean("time") - baseline).load()
-                run_deltas.append(delta)
+                future_mean = ds[turbulence_index].sel(time=slice(start, end)).mean("time").load()
+                if pct_change:
+                    delta_vals = np.where(baseline.values > 1e-15, (future_mean.values - baseline.values) / baseline.values * 100, 0.0,)
+                    delta = xr.DataArray(delta_vals, coords=baseline.coords, dims=baseline.dims)
+                else:
+                    delta = (future_mean - baseline)
+                run_deltas.append(delta.load())
 
             del ds, ds_h, ds_f
             gc.collect()
@@ -4046,7 +4079,7 @@ def draw_futures_1plus3_2x2(
 
     # Simplified title
     fig.suptitle(
-        f"{experiment.upper()} · {time_selection} · {turbulence_index} p99 · {P} hPa",
+        f"{experiment.upper()}, {time_selection}, {turbulence_index} p99, {P}hPa",
         fontsize=fontsize_title,
         fontweight="normal",
         y=0.995,
@@ -4054,7 +4087,10 @@ def draw_futures_1plus3_2x2(
 
     # Colormap / norms
     base_ticks = np.arange(0, 0.071, 0.005)
-    anom_ticks = np.arange(-ticks_max, ticks_max * 1.0001, 0.002)
+    step = 0.002
+    half = np.arange(step, ticks_max + step * 0.001, step)
+    anom_ticks = np.concatenate([-half[::-1], [0.0], half])
+
 
     base_cmap = cmap_dict["ipcc_wind_seq"].copy()
     anom_cmap = crop_cmap_center(
@@ -4157,6 +4193,8 @@ def draw_futures_1plus3_2x2(
 
     cbar_h   = 0.022
     cbar_gap = 0.032   # gap between panel bottom and colorbar top
+    pct_fmt = mticker.FuncFormatter(lambda x, _: f"{x*100:g}")
+
 
     # ── Colorbar 1: baseline — under panel (a) only ───────────────────────────
     cax1 = fig.add_axes([
@@ -4171,9 +4209,10 @@ def draw_futures_1plus3_2x2(
         ticks=base_ticks,
     )
     cbar1.ax.tick_params(labelsize=7, pad=2)
+    cbar1.ax.xaxis.set_major_formatter(pct_fmt)
     for j, lbl in enumerate(cbar1.ax.xaxis.get_ticklabels()):
         lbl.set_visible(j % 2 == 0)
-    cbar1.set_label("Frequency [per 6 h]", fontsize=fontsize_cbar, labelpad=4)
+    cbar1.set_label("Frequency [% per 6h]", fontsize=fontsize_cbar, labelpad=4)
     cbar1.ax.xaxis.set_label_position("bottom")   # label below the bar
 
     # ── Colorbar 2: anomaly — spanning panels (b), (c), (d) ─────────────────
@@ -4192,12 +4231,11 @@ def draw_futures_1plus3_2x2(
         ticks=anom_ticks,
     )
     cbar2.ax.tick_params(labelsize=7, pad=2)
+    cbar2.ax.xaxis.set_major_formatter(pct_fmt)
     for j, lbl in enumerate(cbar2.ax.xaxis.get_ticklabels()):
         lbl.set_visible(j % 2 == 0)
-    cbar2.set_label(
-        "Change in frequency [per 6 h]",
-        fontsize=fontsize_cbar, labelpad=4,
-    )
+    cbar2.set_label("Change in frequency [%]", fontsize=fontsize_cbar, labelpad=4)
+
     cbar2.ax.xaxis.set_label_position("bottom")   # label below the bar
 
     if save_fig and outfile is not None:
@@ -4861,52 +4899,21 @@ def plot_eval_vs_mmmhist_with_diff(
 
 
 # new version to compare barra-p99 eval to mmm-p99 mmm historical:
-def plot_barra_vs_mmm_with_diff_v2(
-    turbulence_index,
-    P,
-    time_selection,
-    ds_barra=None,        # BARRA-p99 evaluation (single run)
-    ds_mmm=None,          # MMM-p99 historical (run dimension = 7 models)
-    filelist_barra=None,
-    filelist_mmm=None,
-    baseline_time_slice=slice("1990", "2009"),
-    figsize=None,
-    ticks_max=None,
-    ticks_diff=None,
-    share_cbar=True,
-    outfile=None,
-    save_fig=False,
-):
-    # ── Load BARRA-p99 evaluation ──────────────────────────────────────────────
-    if ds_barra is None:
-        if filelist_barra is None:
-            filelist_barra = glob(
-                f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/"
-                f"BARRA-p99/freq-above-p99/"
-                f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_evaluation_"
-                f"*_BOM_BARPA-R_v1-r1_6hr.nc"
-            )
-        ds_barra = xr.open_dataset(filelist_barra[0])
+def plot_barra_vs_mmm_with_diff_v2(turbulence_index,
+                                   P,
+                                   time_selection,
+                                   ds_barra,        # BARRA-p99 evaluation (single run)
+                                   ds_mmm,          # MMM-p99 historical (run dimension = 7 models)
+                                   baseline_time_slice=slice("1990", "2009"),
+                                   figsize=None,
+                                   ticks_max=None,
+                                   ticks_diff=None,
+                                   share_cbar=True,
+                                   outfile=None,
+                                   save_fig=False
+                                   ):
 
-    # ── Load MMM-p99 historical ────────────────────────────────────────────────
-    if ds_mmm is None:
-        if filelist_mmm is None:
-            filelist_mmm = sorted(glob(
-                f"/scratch/v46/ls7238/CAT_turbulence/{turbulence_index}/{P}hPa/"
-                f"mmm-p99/freq-above-p99/"
-                f"{turbulence_index}-{P}hPa-monthly-freq-above-p99_AUS-15_historical_"
-                f"*_BOM_BARPA-R_v1-r1_6hr.nc"
-            ))
-        ds_mmm = xr.open_mfdataset(
-            filelist_mmm,
-            combine="nested",
-            concat_dim="run",
-            join="outer",
-            coords="different",
-            compat="no_conflicts",
-        )
-
-    # ── Periods ───────────────────────────────────────────────────────────────
+    # Formating for selected time period, eg monthly, seasonal, annual, etc.
     if time_selection in TIME_GROUPS:
         periods = TIME_GROUPS[time_selection]
     else:
@@ -4914,124 +4921,131 @@ def plot_barra_vs_mmm_with_diff_v2(
 
     n_rows = len(periods)
 
-    # ── Pre-compute all row data ───────────────────────────────────────────────
+    # Data to go in the plots organised per row of the figure
     row_data = []
     for period in periods:
         ds_barra_r = select_resample_time(ds_barra.sel(time=baseline_time_slice), period)
         ds_mmm_r   = select_resample_time(ds_mmm.sel(time=baseline_time_slice),   period)
 
-        da_eval = ds_barra_r[turbulence_index].mean("time")
-        da_hist = ds_mmm_r[turbulence_index].mean(["time", "run"])
+        da_eval = ds_barra_r[turbulence_index].mean([d for d in ds_barra_r[turbulence_index].dims if d not in ("lat", "lon")])
+        da_hist = ds_mmm_r[turbulence_index].mean([d for d in ds_mmm_r[turbulence_index].dims if d not in ("lat", "lon")])
         da_diff = da_hist - da_eval
         row_data.append((da_eval, da_hist, da_diff))
 
-    # ── Figure size ───────────────────────────────────────────────────────────
+    # Helper functions for figure formatting 
+    def _nice_base_ticks(max_decimal):
+        max_pct = max_decimal * 100
+        for step in [0.5, 1, 2, 2.5, 5, 10, 20]:
+            if max_pct / step <= 15:
+                nice_max = np.ceil(max_pct / step) * step
+                return np.arange(0, nice_max + step * 0.001, step) / 100
+        return np.linspace(0, max_decimal, 8)
+
+    def _nice_diff_ticks(max_decimal):
+        max_pct = max_decimal * 100
+        for step in [0.5, 1, 2, 2.5, 5, 10, 20]:
+            if max_pct / step <= 10:
+                nice_max = np.ceil(max_pct / step) * step
+                return np.arange(-nice_max, nice_max + step * 0.001, step) / 100
+        return np.linspace(-max_decimal, max_decimal, 15)
+
+    pct_fmt = mticker.FuncFormatter(lambda x, _: f"{x*100:g}")
+
+
+    # FIGURE SET-UP
     if figsize is None:
         figsize = (15, 4 * n_rows) if share_cbar else (15, 4.5 * n_rows)
 
-    # ── Colormaps ─────────────────────────────────────────────────────────────
+    # Colours
     base_cmap = cmap_dict["ipcc_wind_seq"].copy()
     base_cmap.set_bad("lightgrey")
     diff_cmap = cmap_dict["anom"].copy()
     diff_cmap.set_bad("lightgrey")
 
-    # ── Global ticks ──────────────────────────────────────────────────────────
+    # Ticks on colour bar formatting
     if share_cbar:
-        global_base_ticks = np.arange(0, 0.071, 0.005)
         if ticks_max is not None:
-            global_base_ticks = np.arange(0, ticks_max * 1.0001, ticks_max / 14)
-
-        if ticks_diff is None:
-            global_diff_max = float(np.max([
-                np.nanmax(np.abs(da_diff.values))
-                for _, _, da_diff in row_data
-            ]))
+            global_base_ticks = _nice_base_ticks(ticks_max)
         else:
-            global_diff_max = ticks_diff
-        diff_step = global_diff_max / 7
-        global_diff_ticks = np.arange(
-            -global_diff_max, global_diff_max + diff_step * 0.001, diff_step
-        )
+            global_base_ticks = _nice_base_ticks(0.07)
 
-    # ── Shared map settings ───────────────────────────────────────────────────
+        global_diff_max = ticks_diff if ticks_diff is not None else float(np.max([
+            np.nanmax(np.abs(da_diff.values)) for _, _, da_diff in row_data
+        ]))
+        global_diff_ticks = _nice_diff_ticks(global_diff_max)
+
+
     xticks = [100, 120, 140, 160, 180]
     yticks = [-50, -40, -30, -20, -10, 0, 10]
     proj   = ccrs.PlateCarree(130)
 
-    # ── Figure ────────────────────────────────────────────────────────────────
-    fig, axs_2d = plt.subplots(
-        nrows=n_rows, ncols=3,
-        figsize=figsize,
-        subplot_kw={"projection": proj, "frame_on": True},
-        squeeze=False,
-    )
+    # PLOT
+    fig, axs_2d = plt.subplots(nrows=n_rows, ncols=3, figsize=figsize,
+                               subplot_kw={"projection": proj, "frame_on": True},
+                               squeeze=False)
 
     row_ims = []
 
-    for row, (period, (da_eval, da_hist, da_diff)) in enumerate(
-        zip(periods, row_data)
-    ):
+    for row, (period, (da_eval, da_hist, da_diff)) in enumerate(zip(periods, row_data)):
+
+        # Colour bar
         if share_cbar:
             base_ticks = global_base_ticks
             diff_ticks = global_diff_ticks
+
         else:
-            row_base_max = float(np.nanmax([
+            row_base_max = ticks_max if ticks_max is not None else float(np.nanmax([
                 np.nanmax(da_eval.values), np.nanmax(da_hist.values),
             ]))
-            if ticks_max is not None:
-                row_base_max = ticks_max
-            base_ticks = np.arange(0, row_base_max * 1.0001, row_base_max / 14)
+            base_ticks = _nice_base_ticks(row_base_max)
+
             row_diff_max = float(np.nanmax(np.abs(da_diff.values)))
-            diff_step    = row_diff_max / 7
-            diff_ticks   = np.arange(
-                -row_diff_max, row_diff_max + diff_step * 0.001, diff_step
-            )
+            if row_diff_max == 0 or np.isnan(row_diff_max):
+                row_diff_max = 1e-6
+            diff_ticks = _nice_diff_ticks(row_diff_max)
+
 
         base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="both")
         diff_norm = BoundaryNorm(diff_ticks, diff_cmap.N + 1, extend="both")
 
+        # details and data for each panel
         panel_data   = [da_eval,                         da_hist,                        da_diff]
-        panel_titles = [f"BARRA-p99 eval: {period}",    f"MMM-p99 historical: {period}", f"MMM − BARRA-p99: {period}"]
+        panel_titles = [f"BARRA-p99 eval: {period}",    f"MMM-p99 historical: {period}", f"MMM - BARRA-p99: {period}"]
         panel_cmaps  = [base_cmap,                       base_cmap,                      diff_cmap]
         panel_norms  = [base_norm,                       base_norm,                      diff_norm]
 
         base_im = diff_im = None
 
-        for col, (ax, da, title, cmap, norm) in enumerate(
-            zip(axs_2d[row], panel_data, panel_titles, panel_cmaps, panel_norms)
-        ):
+        # Plot each panel
+        for col, (ax, da, title, cmap, norm) in enumerate(zip(axs_2d[row], panel_data, panel_titles, panel_cmaps, panel_norms)):
             ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
-            im = ax.pcolormesh(
-                da.lon, da.lat, da,
-                cmap=cmap, norm=norm,
-                transform=ccrs.PlateCarree(), zorder=2,
-            )
+            im = ax.pcolormesh(da.lon, da.lat, da,                      # Data
+                               cmap=cmap, norm=norm,                    # Colour
+                               transform=ccrs.PlateCarree(), zorder=2)  # Map
             if col < 2:
                 base_im = im
             else:
                 diff_im = im
 
-            ax.add_geometries(
-                regions_dict["aus_states_territories"]["geometry"],
-                crs=ccrs.PlateCarree(),
-                facecolor="none", edgecolor="black", linewidth=0.3, zorder=6,
-            )
+            # Format map
+            ax.add_geometries(regions_dict["aus_states_territories"]["geometry"],
+                              crs=ccrs.PlateCarree(),
+                              facecolor="none", edgecolor="black", linewidth=0.3, zorder=6)
             ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
             try:
                 ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
             except Exception:
                 pass
 
+            # Pretty-ify the figure and gridlines
             for spine in ax.spines.values():
                 spine.set_visible(True)
                 spine.set_edgecolor("#aaaaaa")
                 spine.set_linewidth(0.8)
 
-            gl = ax.gridlines(
-                crs=ccrs.PlateCarree(),
-                linewidth=0.4, color="black", alpha=0.20,
-                linestyle="--", draw_labels=True,
-            )
+            gl = ax.gridlines(crs=ccrs.PlateCarree(),
+                              linewidth=0.4, color="black", alpha=0.20,
+                              linestyle="--", draw_labels=True)
             gl.rotate_labels  = False
             gl.xlocator       = mticker.FixedLocator(xticks)
             gl.ylocator       = mticker.FixedLocator(yticks)
@@ -5040,31 +5054,31 @@ def plot_barra_vs_mmm_with_diff_v2(
             gl.left_labels    = (col == 0)
             gl.right_labels   = False
             gl.top_labels     = False
-            gl.bottom_labels  = (row == n_rows - 1) if share_cbar else False
-            gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
-            gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+            gl.bottom_labels  = (row == n_rows - 1)
+            gl.xlabel_style   = {"fontsize": 9, "rotation": 0, "ha": "center"}
+            gl.ylabel_style   = {"fontsize": 9, "rotation": 0, "ha": "right", "va": "center"}
 
             ax.set_title(title, loc="left", fontsize=fontsize_subtitle,
                          fontweight="normal", pad=2)
 
         row_ims.append((base_im, diff_im, base_ticks, diff_ticks))
 
-    # ── Layout (unchanged) ────────────────────────────────────────────────────
+    # Spacing fotmatting
     fig.subplots_adjust(left=0.06, right=0.97, top=0.99, bottom=0.08, wspace=0.18)
     fig.canvas.draw()
 
     if share_cbar:
         cbar_h       = 0.018 / n_rows
-        cbar_gap     = 0.09  / n_rows
+        cbar_gap     = 0.12 / n_rows  
         panel_gap    = 0.01
         panel_height = 0.7 / n_rows
     else:
         cbar_h       = 0.030 / n_rows
-        cbar_gap     = 0.012 / n_rows
+        cbar_gap     = 0.06 / n_rows  
         inter_gap    = 0.020 / n_rows
         panel_gap    = cbar_gap + cbar_h + inter_gap
-        panel_height = (0.85 - n_rows * (cbar_gap + cbar_h)
-                        - (n_rows - 1) * inter_gap) / n_rows
+        panel_height = (0.85 - n_rows * (cbar_gap + cbar_h) - (n_rows - 1) * inter_gap) / n_rows
+
 
     for row in range(n_rows):
         for col in range(3):
@@ -5078,24 +5092,21 @@ def plot_barra_vs_mmm_with_diff_v2(
 
     fig.canvas.draw()
     top_of_panels = 0.05 + (n_rows - 1) * (panel_height + panel_gap) + panel_height
-    fig.suptitle(
-        f"{turbulence_index} · {P} hPa · {time_selection} · 1990–2009\n"
-        f"BARRA-p99 evaluation vs MMM-p99 historical",
-        fontsize=fontsize_title, fontweight="normal",
-        y=top_of_panels + 0.03,
-    )
+    fig.suptitle(f"{turbulence_index} · {P} hPa · {time_selection} · 1990-2009\n"
+                 f"BARRA-p99 evaluation vs MMM-p99 historical",
+                 fontsize=fontsize_title, fontweight="normal",
+                 y=top_of_panels + 0.03)
 
-    # ── Colorbars (unchanged) ─────────────────────────────────────────────────
-    def _add_cbar(im, ticks, ax_left, ax_right, y_bottom, label):
+    # Colourbars 
+    def _add_cbar(im, ticks, ax_left, ax_right, y_bottom, label, extend="both"):
         pos_l = ax_left.get_position()
         pos_r = ax_right.get_position()
         cax = fig.add_axes([pos_l.x0, y_bottom, pos_r.x1 - pos_l.x0, cbar_h])
         cbar = fig.colorbar(im, cax=cax, orientation="horizontal",
-                            extend="both", ticks=ticks)
-        cbar.ax.tick_params(labelsize=7, pad=2)
-        for j, lbl in enumerate(cbar.ax.xaxis.get_ticklabels()):
-            lbl.set_visible(j % 2 == 0)
-        cbar.set_label(label, fontsize=fontsize_cbar, labelpad=4)
+                            extend=extend, ticks=ticks)
+        cbar.ax.xaxis.set_major_formatter(pct_fmt)
+        cbar.ax.tick_params(labelsize=9, pad=2)
+        cbar.set_label(label, fontsize=fontsize_cbar + 1, labelpad=4)
         cbar.ax.xaxis.set_label_position("bottom")
         return cbar
 
@@ -5103,19 +5114,16 @@ def plot_barra_vs_mmm_with_diff_v2(
         base_im, diff_im, base_ticks, diff_ticks = row_ims[-1]
         pos_bl = axs_2d[-1, 0].get_position()
         y_cbar = pos_bl.y0 - cbar_gap - cbar_h
-        _add_cbar(base_im, global_base_ticks,
-                  axs_2d[-1, 0], axs_2d[-1, 1], y_cbar, "Frequency [per 6 h]")
-        _add_cbar(diff_im, global_diff_ticks,
-                  axs_2d[-1, 2], axs_2d[-1, 2], y_cbar, "Difference [per 6 h]")
+        _add_cbar(base_im, global_base_ticks, axs_2d[-1, 0], axs_2d[-1, 1], y_cbar, "Frequency [% per 6h]", extend="max")
+        _add_cbar(diff_im, global_diff_ticks, axs_2d[-1, 2], axs_2d[-1, 2], y_cbar, "Difference [% per 6h]", extend="both")
     else:
         for row, (base_im, diff_im, base_ticks, diff_ticks) in enumerate(row_ims):
             pos_row = axs_2d[row, 0].get_position()
             y_cbar  = pos_row.y0 - cbar_gap - cbar_h
-            _add_cbar(base_im, base_ticks,
-                      axs_2d[row, 0], axs_2d[row, 1], y_cbar, "Frequency [per 6 h]")
-            _add_cbar(diff_im, diff_ticks,
-                      axs_2d[row, 2], axs_2d[row, 2], y_cbar, "Difference [per 6 h]")
+            _add_cbar(base_im, base_ticks, axs_2d[row, 0], axs_2d[row, 1], y_cbar, "Frequency [% per 6h]", extend="max")
+            _add_cbar(diff_im, diff_ticks, axs_2d[row, 2], axs_2d[row, 2], y_cbar, "Difference [% per 6h]", extend="both")
 
+    # Save and output figure
     if save_fig and outfile is not None:
         fig.savefig(outfile, dpi=300, bbox_inches="tight")
         print(f"Saved to: {outfile}")
@@ -7240,10 +7248,307 @@ def prep_sst_per_model(
 
     return result
 
+##### Percentage change from baseline plots ###########
+
+def plot_timeseries_pct_change(
+    ds_ts,
+    turbulence_index,
+    P,
+    window_size,
+    time_selection="annual",
+    baseline_slice=slice("1990", "2009"),
+    lat_box="",
+    ymax=None,
+    ymin=None,
+    save_fig=False,
+    outfile=None,
+):
+    periods   = TIME_GROUPS[time_selection] if time_selection in TIME_GROUPS else [time_selection]
+    n_periods = len(periods)
+
+    # Match layouts from plot_timeseries_season / plot_timeseries_month
+    if n_periods == 1:
+        nrows, ncols, figsize = 1, 1, (10, 4)
+    elif n_periods == 2:
+        nrows, ncols, figsize = 2, 1, (10, 8)
+    elif n_periods == 4:
+        nrows, ncols, figsize = 2, 2, (9, 9)
+    elif n_periods == 12:
+        nrows, ncols, figsize = 4, 3, (12, 12.5)
+    else:
+        nrows, ncols, figsize = n_periods, 1, (10, 4 * n_periods)
+
+    scenarios = {
+        "ssp126": list_ssp126,
+        "ssp370": list_ssp370,
+        "ssp585": list_ssp585,
+    }
+
+    fig, axs_2d = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, sharey=False,
+                                figsize=figsize, squeeze=False)
+
+    for i, period in enumerate(periods):
+        ax        = axs_2d[i // ncols, i % ncols]
+        ds_period = select_resample_time(ds_ts, period)
+
+        # ── Historical ───────────────────────────────────────────────────────
+        hist_pcts = []
+        for hist_run in list_historical:
+            if hist_run not in ds_period.run.values:
+                continue
+            baseline_mean = float(
+                ds_period[turbulence_index].sel(run=hist_run, time=baseline_slice).mean("time")
+            )
+            if baseline_mean == 0:
+                continue
+            hist_pcts.append(
+                (ds_period[turbulence_index].sel(run=hist_run) - baseline_mean)
+                / baseline_mean * 100
+            )
+
+        if hist_pcts:
+            da_hist = xr.concat(hist_pcts, dim="run").rolling(time=window_size, center=True).mean()
+            mmm_h   = da_hist.mean("run")
+            ax.plot(mmm_h.time.values, mmm_h.values, color="grey", lw=1.5)
+            ax.fill_between(mmm_h.time.values,
+                            da_hist.min("run").values, da_hist.max("run").values,
+                            color="grey", alpha=0.15)
+
+        # ── Future scenarios ─────────────────────────────────────────────────
+        for scenario, run_list in scenarios.items():
+            pcts = []
+            for future_run in run_list:
+                hist_run = "historical" + future_run[len(scenario):]
+                if hist_run not in ds_period.run.values or future_run not in ds_period.run.values:
+                    continue
+                baseline_mean = float(
+                    ds_period[turbulence_index].sel(run=hist_run, time=baseline_slice).mean("time")
+                )
+                if baseline_mean == 0:
+                    continue
+                pcts.append(
+                    (ds_period[turbulence_index].sel(run=future_run) - baseline_mean)
+                    / baseline_mean * 100
+                )
+            if not pcts:
+                continue
+            da_fut = xr.concat(pcts, dim="run").rolling(time=window_size, center=True).mean()
+            mmm    = da_fut.mean("run")
+            color  = ssp_colors[scenario]
+            ax.plot(mmm.time.values, mmm.values, color=color, lw=1.5)
+            ax.fill_between(mmm.time.values,
+                            da_fut.min("run").values, da_fut.max("run").values,
+                            color=color, alpha=0.15)
+
+        ax.axhline(0, color="grey", lw=0.8, linestyle="--", alpha=0.5)
+        ax.set_title(period, fontsize=fontsize_subtitle)
+        ax.grid(alpha=0.3)
+        ax.tick_params(axis="both", labelsize=9 if n_periods == 12 else 10)
+        ax.tick_params(axis="y", pad=2)
+
+        ymax_i = ymax[i] if hasattr(ymax, "__len__") else ymax
+        ymin_i = ymin[i] if hasattr(ymin, "__len__") else ymin
+        if ymax_i is not None:
+            ax.set_ylim(top=ymax_i)
+        if ymin_i is not None:
+            ax.set_ylim(bottom=ymin_i)
+
+    for ax in axs_2d.flat:
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+
+    # Match subplots_adjust from the originals
+    if n_periods == 12:
+        fig.subplots_adjust(left=0.10, right=0.98, top=0.93, bottom=0.08,
+                            wspace=0.19, hspace=0.20)
+    elif n_periods == 4:
+        fig.subplots_adjust(bottom=0.10, hspace=0.25)
+    else:
+        fig.subplots_adjust(hspace=0.35, bottom=0.10)
+
+    fig.supylabel("Change in frequency [%]")
+    fig.supxlabel("Year")
+    fig.suptitle(
+        f"{turbulence_index} {P} hPa · {time_selection} · % change from "
+        f"{baseline_slice.start}-{baseline_slice.stop} · {lat_box}",
+        fontsize=fontsize_title, fontweight="normal",
+    )
+
+    legend_handles = [
+        Line2D([0], [0], color="grey",               lw=1.5, label="Historical"),
+        Line2D([0], [0], color=ssp_colors["ssp126"], lw=1.5, label="SSP1-2.6"),
+        Line2D([0], [0], color=ssp_colors["ssp370"], lw=1.5, label="SSP3-7.0"),
+        Line2D([0], [0], color=ssp_colors["ssp585"], lw=1.5, label="SSP5-8.5"),
+    ]
+    fig.legend(handles=legend_handles, loc="lower center", ncol=4,
+               frameon=False, bbox_to_anchor=(0.5, -0.02))
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved {outfile}")
+
+    return fig, axs_2d
 
 
+# percentage change plot (spatial)
 
 
+def draw_futures_1plus3_2x2_pct(
+    prepped,
+    figsize=(9, 8),
+    ticks_max=50,       # now in % (e.g. 50 = ±50%)
+    ticks_step=None,    # auto if None
+    min_baseline=0.005,
+    outfile=None,
+    save_fig=False,
+):
+    ds_baseline = prepped["ds_baseline"]
+    ds_1, ds_2, ds_3 = prepped["ds_list"]
+    stippling_1, stippling_2, stippling_3 = prepped["agreement_list"]
+    time_slices = prepped["time_slices"]
+    time_selection = prepped["time_selection"]
+    turbulence_index = prepped["turbulence_index"]
+    P = prepped["P"]
+    experiment = prepped["experiment"]
+
+    # mask anomaly panels where baseline is too low for % change to be meaningful
+    low_freq_mask = ds_baseline < min_baseline
+    ds_1 = ds_1.where(~low_freq_mask)
+    ds_2 = ds_2.where(~low_freq_mask)
+    ds_3 = ds_3.where(~low_freq_mask)
+
+    map_list      = [ds_baseline, ds_1, ds_2, ds_3]
+    stippling_list = [None, stippling_1, stippling_2, stippling_3]
+
+    letters = ["(a)", "(b)", "(c)", "(d)"]
+    panel_titles = [f"{letters[i]} {start}-{end}" for i, (start, end) in enumerate(time_slices)]
+
+    proj = ccrs.PlateCarree(130)
+    fig, axs_2d = plt.subplots(
+        nrows=2, ncols=2, figsize=figsize,
+        subplot_kw={"projection": proj, "frame_on": True},
+    )
+    axs = axs_2d.flatten()
+
+    fig.suptitle(
+        f"{experiment.upper()}, {time_selection}, {turbulence_index} p99, {P}hPa",
+        fontsize=fontsize_title, fontweight="normal", y=0.995,
+    )
+
+    # Base ticks (absolute frequency, shown as %)
+    base_ticks = np.arange(0, 0.071, 0.005)
+
+    # Anomaly ticks in % — pick a sensible step
+    if ticks_step is None:
+        for s in [1, 2, 5, 10, 20, 25, 50]:
+            if ticks_max / s <= 12:
+                ticks_step = s
+                break
+    half = np.arange(ticks_step, ticks_max + ticks_step * 0.001, ticks_step)
+    anom_ticks = np.concatenate([-half[::-1], [0.0], half])
+
+    base_cmap = cmap_dict["ipcc_wind_seq"].copy()
+    anom_cmap = crop_cmap_center(cmap_dict["anom"].copy(), anom_ticks, 0, extend="both")
+    base_cmap.set_bad("lightgrey")
+    anom_cmap.set_bad("lightgrey")
+
+    base_norm = BoundaryNorm(base_ticks, base_cmap.N + 1, extend="max")
+    anom_norm = BoundaryNorm(anom_ticks, anom_cmap.N + 1, extend="both")
+
+    xticks = [100, 120, 140, 160, 180]
+    yticks = [-50, -40, -30, -20, -10, 0, 10]
+    last_base = last_anom = None
+
+    for i, ax in enumerate(axs):
+        da   = map_list[i]
+        stip = stippling_list[i]
+        row, col = divmod(i, 2)
+
+        ax.set_extent([90, 195, -53.58, 13.63], crs=ccrs.PlateCarree())
+
+        if i == 0:
+            last_base = ax.pcolormesh(da.lon, da.lat, da,
+                                      cmap=base_cmap, norm=base_norm,
+                                      transform=ccrs.PlateCarree(), zorder=2)
+        else:
+            last_anom = ax.pcolormesh(da.lon, da.lat, da,
+                                      cmap=anom_cmap, norm=anom_norm,
+                                      transform=ccrs.PlateCarree(), zorder=2)
+
+        if stip is not None:
+            ax.contourf(stip.lon, stip.lat, stip, alpha=0,
+                        hatches=["", "xxxxxx"], transform=ccrs.PlateCarree(), zorder=4)
+
+        ax.add_geometries(regions_dict["aus_states_territories"]["geometry"],
+                          crs=ccrs.PlateCarree(),
+                          facecolor="none", edgecolor="black", linewidth=0.3, zorder=6)
+        ax.coastlines(resolution="10m", linewidth=0.25, zorder=5)
+        try:
+            ax.add_feature(cfeature.BORDERS, linewidth=0.2, zorder=5)
+        except Exception:
+            pass
+
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_edgecolor("#cccccc")
+            spine.set_linewidth(0.5)
+
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), linewidth=0.4, color="black",
+                          alpha=0.20, linestyle="--", draw_labels=True,
+                          xpadding=6, ypadding=6)
+        gl.rotate_labels  = False
+        gl.xlocator       = mticker.FixedLocator(xticks)
+        gl.ylocator       = mticker.FixedLocator(yticks)
+        gl.xformatter     = LONGITUDE_FORMATTER
+        gl.yformatter     = LATITUDE_FORMATTER
+        gl.left_labels    = (col == 0)
+        gl.right_labels   = False
+        gl.top_labels     = False
+        gl.bottom_labels  = (row == 1)
+        gl.xlabel_style   = {"fontsize": 7, "rotation": 0, "ha": "center"}
+        gl.ylabel_style   = {"fontsize": 7, "rotation": 0, "ha": "right", "va": "center"}
+
+        ax.set_title(panel_titles[i], loc="left", fontsize=fontsize_subtitle,
+                     fontweight="normal", pad=2)
+
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.93, bottom=0.22,
+                        hspace=0.35, wspace=0.18)
+    fig.canvas.draw()
+    pos = [ax.get_position() for ax in axs]
+
+    cbar_h   = 0.022
+    cbar_gap = 0.032
+    pct_fmt_base = mticker.FuncFormatter(lambda x, _: f"{round(x*100, 6):g}")
+    pct_fmt_anom = mticker.FuncFormatter(lambda x, _: f"{round(x, 6):g}")   # already in %
+
+    # Colorbar 1: baseline (absolute → shown as %)
+    cax1 = fig.add_axes([pos[0].x0, pos[0].y0 - 0.02 - cbar_h, pos[0].width, cbar_h])
+    cbar1 = fig.colorbar(last_base, cax=cax1, orientation="horizontal",
+                         extend="max", ticks=base_ticks)
+    cbar1.ax.xaxis.set_major_formatter(pct_fmt_base)
+    cbar1.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar1.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar1.set_label("Frequency [%]", fontsize=fontsize_cbar, labelpad=4)
+    cbar1.ax.xaxis.set_label_position("bottom")
+
+    # Colorbar 2: % change — spanning bottom row
+    cax2 = fig.add_axes([pos[2].x0, pos[2].y0 - cbar_gap - cbar_h,
+                         pos[3].x1 - pos[2].x0, cbar_h])
+    cbar2 = fig.colorbar(last_anom, cax=cax2, orientation="horizontal",
+                         extend="both", ticks=anom_ticks)
+    cbar2.ax.xaxis.set_major_formatter(pct_fmt_anom)
+    cbar2.ax.tick_params(labelsize=7, pad=2)
+    for j, lbl in enumerate(cbar2.ax.xaxis.get_ticklabels()):
+        lbl.set_visible(j % 2 == 0)
+    cbar2.set_label("% change in frequency", fontsize=fontsize_cbar, labelpad=4)
+    cbar2.ax.xaxis.set_label_position("bottom")
+
+    if save_fig and outfile is not None:
+        fig.savefig(outfile, dpi=300, bbox_inches="tight")
+        print(f"Saved to: {outfile}")
+
+    return fig, axs
 
 
 

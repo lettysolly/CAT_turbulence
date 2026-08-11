@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#PBS -P v46
+#PBS -q normal
+#PBS -l ncpus=4
+#PBS -l mem=64GB
+#PBS -l jobfs=30GB
+#PBS -l walltime=00:30:00
+#PBS -l storage=gdata/py18+scratch/v46
+#PBS -l wd
+#PBS -N TI2_test
+#PBS -j oe
+
+set -euo pipefail
+
+# Activate conda environment
+source /home/563/ls7238/miniconda3/etc/profile.d/conda.sh
+conda activate test
+
+: "${TURB_INDEX:?Must set TURB_INDEX, e.g. qsub -v TURB_INDEX=TI2 run_turbulence_test.pbs}"
+
+echo "Job: $PBS_JOBID"
+echo "TEST run for turbulence index: $TURB_INDEX"
+echo "NCPUS: $PBS_NCPUS"
+
+python3 run_turbulence_index.py "$TURB_INDEX" --ncpus "$PBS_NCPUS" --test

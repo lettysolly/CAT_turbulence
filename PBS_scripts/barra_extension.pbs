@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#PBS -N barra_extend
+#PBS -q normalbw
+#PBS -l ncpus=8
+#PBS -l mem=70GB
+#PBS -l walltime=48:00:00
+#PBS -l storage=scratch/v46+gdata/py18+gdata/cj37
+#PBS -l jobfs=100GB
+#PBS -j oe
+#PBS -m ae
+#PBS -M ljsolly@student.unimelb.edu.au
+
+# Activate conda environment
+source /home/563/ls7238/miniconda3/etc/profile.d/conda.sh
+conda activate test
+
+
+cd /home/563/ls7238/code/CAT_turbulence/gen_work/turbulence_AUSCAT/PBS_scripts
+
+export HDF5_USE_FILE_LOCKING=FALSE
+
+python barra_extension.py
